@@ -1,6 +1,6 @@
 # Design System & Görsel Standartlar
 
-Smart Classroom Seating uygulaması, ALKEV Okulları'nın köklü kurumsal kimliğini yansıtan, modern, temiz ve akademik bir tasarım diline sahiptir.
+Smart Classroom Seating (`oturmaPlani`) uygulaması, ALKEV Okulları'nın köklü kurumsal kimliğini yansıtan, modern, temiz ve akademik bir tasarım diline sahiptir.
 
 ---
 

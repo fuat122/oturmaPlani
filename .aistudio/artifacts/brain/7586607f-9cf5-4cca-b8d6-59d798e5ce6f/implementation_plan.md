@@ -1,70 +1,56 @@
-# Smart Classroom Seating (Akıllı Sınıf Oturma Planı)
+# Smart Classroom Seating (Akıllı Sınıf Oturma Planı) - `oturmaPlani`
 
-ALKEV Özel Okulları standartlarına uygun, `@alkev.k12.tr` kurumsal domain güvenlikli, hatasız A4 yatay PDF çıktısı üreten, mobil uyumlu ve pedagojik denge odaklı akıllı sınıf oturma planı uygulaması.
+Yeni `oturmaPlani` GitHub deposuna tam uyumlu, ALKEV Özel Okulları kurumsal standartlarında, `@alkev.k12.tr` domain güvenlikli, hatasız A4 yatay PDF motoruna ve esnek mobil arayüze sahip akıllı oturma planı mimarisi.
 
 ---
 
 ### User Review & Critical Decisions
 
 > [!IMPORTANT]
-> Aşağıdaki kararlar netleştirilmiş olup uygulamada bu doğrultuda hayata geçirilecektir:
+> Kullanıcının yeni talebi doğrultusunda aşağıdaki yapılandırma güncellemeleri uygulanacaktır:
 
-- **Confirmed Decision 1 (Oturma Algoritması)**: Kapsamlı denge kriteri (ön sıra görme/işitme ihtiyaçları, cinsiyet dengesi, akademik başarı dağılımı ve davranışsal ayrıştırma) kombine olarak çalışacaktır.
-- **Confirmed Decision 2 (Oturma Düzeni)**: Klasik ikili sıra yerleşimi (koridorlu sıralar, tahta/öğretmen masası yönlendirmesi) temel alınacaktır.
-- **Confirmed Decision 3 (Kimlik Doğrulama)**: Firebase Auth ile gerçek Google `@alkev.k12.tr` girişi + AI Studio geliştirme/önizleme ortamı için test öğretmeni girişi (`ogretmen@alkev.k12.tr`) birlikte sunulacaktır.
+- **Base Yolu & Dağıtım**: `vite.config.js` / `vite.config.ts` içerisinde GitHub Pages base yolu doğrudan `base: command === 'serve' ? '/' : '/oturmaPlani/'` (veya `base: '/oturmaPlani/'`) olarak yapılandırılacaktır. `vite.config.ts` sunucu portu `port: 3000` ve `host: '0.0.0.0'` olarak sabitlenerek `"dev": "vite"` scriptiyle eksiksiz uyum sağlanacaktır.
+- **Scripts Güncellemesi**: `package.json` içerisindeki `"scripts"` bloğu birebir kullanıcının belirttiği şekilde ayarlanacaktır:
+  ```json
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
+  }
+  ```
+- **gh-pages Bağımlılığı**: `gh-pages` paketi devDependencies altında hazır tutulacaktır.
+- **Domain Kısıtlaması (@alkev.k12.tr)**: Hem `signInWithPopup` hem de `onAuthStateChanged` içinde e-posta domain denetimi sürdürülecek; yabancı domain ile girişte derhal `auth.signOut()` çağrılacak, uyarı gösterilecek ve ekranın kilitlenmemesi için `loading: false` çekilecektir.
+- **Mobil & PDF Çözümü**: Navbar `flex-col sm:flex-row`, Öğrenci Gözlem Paneli alt boşluğu `pb-28`, PDF motoru ekran dışı (off-screen, `left: -9999px`) 1200px sabit genişlikli standart HEX renkli A4 Yatay şablon olarak korunacaktır.
+- **Dokümantasyon Senkronizasyonu**: `PRD.md`, `AGENTS.md`, `Design-System.md` ve `Architecture.md` dosyaları yeni `oturmaPlani` yapısına göre güncellenecektir.
 
 ---
 
 ### 1. Overview & Core Concept
 
-- **What It Does**: Öğretmenlerin sınıflarını (şube, öğrenci listesi, danışman öğretmen) yönetmesini, öğrencilerin pedagojik özelliklerine göre (görme/işitme engeli, akademik seviye, cinsiyet ve davranışsal uyarılar) tek tıkla dengeli oturma planı oluşturmasını, el ile sıralar arası sürükle-bırak yapabilmesini ve matbaa/baskı kalitesinde A4 Yatay PDF karnesi üretmesini sağlar.
-- **Target Audience / Persona**: ALKEV Okulları sınıf rehber öğretmenleri, branş öğretmenleri, müdür yardımcıları ve okul psikolojik danışmanlık ve rehberlik (PDR) servisi.
-- **Key Value**: Seating düzenlemelerinde yaşanan zaman kaybını ortadan kaldırır, veli ve öğrenci memnuniyetini artıracak adil/dengeli bir oturma düzeni sağlar ve kurumsal kimlik standartlarında raporlama sunar.
+- **What It Does**: ALKEV Okulları öğretmenlerinin sınıf oturma planlarını pedagojik kriterler (görme/işitme ihtiyaçları, cinsiyet dengesi, akademik seviye karması ve davranışsal ayrıştırma) doğrultusunda tek tıkla düzenlemesini, çiftli sıralar arasında sürükle-bırak/takas yapabilmesini ve matbaa kalitesinde A4 Yatay PDF çıktısı almasını sağlar.
+- **Depo & Canlı Yayın**: GitHub Pages üzerinde `/oturmaPlani/` alt yolunda çalışır.
 
 ---
 
 ### 2. User Experience & Visual Design
 
-#### Key User Flows
-1. **Güvenli Giriş & Domain Filtresi**:
-   - Kullanıcı Google ile giriş yapar. E-posta `@alkev.k12.tr` uzantılı değilse anında `auth.signOut()` çağrılır, hata mesajı gösterilir ve kullanıcı giriş ekranında tutulur (`loading: false`).
-   - Önizleme/test amaçlı tek tıkla test öğretmeni modu sağlanır.
-2. **Sınıf & Şube Seçimi / Yönetimi**:
-   - Üst barda (Navbar) mobil uyumlu (`flex-col sm:flex-row`) sınıf seçici, danışman öğretmen bilgisi ve yeni sınıf ekleme/düzenleme kontrolleri.
-3. **İnteraktif Sınıf Tahtası & Sıra Matrisi**:
-   - Ön tarafta "Öğretmen Kürsüsü & Akıllı Tahta" görsel kılavuzu.
-   - 2'li sıra blokları, her sırada öğrenci kartı (cinsiyet ikonu, görme/işitme rozeti, başarı göstergesi).
-   - Öğrencileri sıralar arasında kolayca yer değiştirme (Swap / Drag-and-drop).
-4. **Akıllı Yerleşim & Optimizasyon**:
-   - "Akıllı Yerleştir" butonu ile öncelik kurallarını işleten simülasyon motoru.
-5. **Öğrenci Gözlem & Takip Paneli**:
-   - Modal pencerede öğrenci listesi, notlar, etiketler ve `pb-28` esnek alt boşluğu ile kesintisiz kaydırma.
-6. **Sıfır Çökme Garantili PDF Dışa Aktarma**:
-   - Ekrana bağımlı kalmadan arka planda (`left: -9999px`) 1200px sabit genişlikli, standart HEX renkli A4 Yatay şablon render edilir.
-   - `[Danışman Öğretmen] Danışmanlığında [Sınıf Adı] Sınıfı` başlığı ile `html2canvas` + `jsPDF` üzerinden tek tıkla yüksek çözünürlüklü PDF indirilir.
-
-#### Visual Identity & Theme
-- **Aesthetic Direction**: ALKEV kurumsal lacivert ve altın sarısı dokunuşlarına sahip, modern, temiz, güven verici akademik arayüz.
-- **Color Palette**:
-  - *Dominant Canvas*: `#F8FAFC` (Slate-50) & `#FFFFFF`
-  - *Structural Surfaces*: `#0F172A` (Navy/Slate-900) ve `#E2E8F0` (Border)
-  - *Accent*: ALKEV Kurumsal Laciverti (`#1E3A8A`) & Akademik Mavi (`#2563EB`)
-  - *Semantic Accents*: Kız/Erkek dağılımı için soft lavanta (`#4F46E5`) / safir (`#0284C7`), Görme/İşitme önceliği için sarı (`#D97706`).
-- **Typography**: Display & arayüz için `Plus Jakarta Sans` / `Outfit`, öğrenci numaraları ve istatistikler için `tabular-nums`.
+- **Mobil Uyumlu Navbar**: Küçük ekranlarda `flex-col`, masaüstünde `sm:flex-row` olarak düzenlenir. Logo, sınıf seçici ve profil alanı dikey taşma yapmaz.
+- **Öğrenci Takip & Gözlem Paneli**: Kaydırma listesinin altında `pb-28` esnek padding bulunur, son öğrenciler mobil cihazlarda daima görünür ve erişilebilirdir.
+- **İnteraktif Sınıf Izgarası**: Tahta ve öğretmen kürsüsü ön planda, 2'li sıra blokları, koltuk takası için seçim ve hedef tıklama, yerleşmemiş öğrenciler havuzu.
+- **Görsel Standartlar**: ALKEV Kurumsal Lacivert (`#1E3A8A`) ve Altın Sarısı (`#D97706`), `Plus Jakarta Sans` yazı tipi, `tabular-nums` rakamlar.
 
 ---
 
 ### 3. Key Product Decisions & Trade-Offs
 
-- **Off-Screen Fixed-Width PDF Engine**:
-  - *Karar*: Ekranda kullanıcı tarafından boyutlandırılmış veya taşma yapabilecek DOM yerine, DOM dışında 1200px genişlikte pikselleri kesin olarak hesaplanan A4 Yatay bir şablon oluşturulup PDF'e dönüştürülmesi.
-  - *Neden*: Mobil ve dar ekranlarda `html2canvas`'ın kırpma, kaydırma çubuğu veya bozuk font render etmesi sıfıra indirilir.
-- **Domain Gate Enforcement (`@alkev.k12.tr`)**:
-  - *Karar*: Hem `signInWithPopup` sonrasında hem de Firebase `onAuthStateChanged` tetiklendiğinde e-posta domain denetimi yapılır. Yetkisiz girişlerde derhal oturum sonlandırılır.
-  - *Neden*: Kurum dışı Google hesaplarının öğrenci verilerine erişimi kesin olarak engellenir.
-- **State Management & Persistence**:
-  - *Karar*: Firebase Firestore senkronizasyonu ile birlikte kesintisiz offline/localStorage yedeklemesi.
-  - *Neden*: İnternet dalgalanmalarında veya Firestore kural gecikmelerinde öğretmenin yaptığı oturma planı asla kaybolmaz.
+- **Base Path & Dev Server**:
+  - `vite.config.ts`: `base: command === 'serve' ? '/' : '/oturmaPlani/'` ayarı hem GitHub Pages (`npm run deploy`) yapısını eksiksiz karşılar hem de AI Studio önizleme ortamında kök yoldan kesintisiz çalışmayı garanti eder. Ayrıca `vite.config.js` dosyası da projeye eklenerek iki dosya yapısı da desteklenir.
+  - `server: { port: 3000, host: '0.0.0.0' }` ayarı sayesinde `"dev": "vite"` scripti doğrudan 3000 portunda başlar.
+- **Sıfır Çökme Garantili PDF Motoru**:
+  - Responsive ekran DOM'unu kopyalamak yerine, 1200px sabit genişlikte ekran dışı (`left: -9999px`) A4 şablon oluşturulur.
+  - Başlık: `[Danışman Öğretmen] Danışmanlığında [Sınıf Adı] Sınıfı`.
+  - `html2canvas` ve `jsPDF` çıktısı indikten sonra `finally` bloğu DOM'u temizler.
 
 ---
 
@@ -73,98 +59,64 @@ ALKEV Özel Okulları standartlarına uygun, `@alkev.k12.tr` kurumsal domain gü
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        App Navigation & Top Bar                        │
-│  [ALKEV Wordmark] ── [Sınıf Seçimi: 9-A, 10-B...] ── [Kullanıcı/Çıkış] │
+│  [ALKEV Brand] ── [Sınıf Seçici: 9-A, 10-B...] ── [Kullanıcı & Çıkış]  │
 └────────────────────────────────────┬───────────────────────────────────┘
                                      │
            ┌─────────────────────────┴─────────────────────────┐
            ▼                                                   ▼
 ┌──────────────────────────────────────┐  ┌───────────────────────────────────┐
-│     Sınıf Tahtası & Kontrol Barı     │  │     Öğrenci Yönetim & Havuz       │
-│  - "Akıllı Yerleştir (Auto-Seat)"    │  │  - Öğrenci Ekle / Düzenle         │
-│  - "PDF İndir (A4 Yatay)"            │  │  - İhtiyaç & Başarı Etiketleri    │
-│  - "Temizle / Sıfırla"               │  │  - Yerleşmemiş Öğrenci Listesi    │
+│         ClassroomToolbar             │  │     StudentObservationModal       │
+│  - Akıllı Yerleştir (Auto-Seat)      │  │  - Öğrenci Ekle / Düzenle         │
+│  - PDF İndir (A4 Yatay)              │  │  - Görme/İşitme Gereksinimleri    │
+│  - Sıraları Temizle / Sıfırla        │  │  - Birlikte Oturmayanlar Listesi  │
+│  - Anlık Pedagojik Denge Metrikleri  │  │  - Esnek pb-28 Kaydırma Alanı     │
 └──────────────────┬───────────────────┘  └─────────────────┬─────────────────┘
                    │                                        │
                    ▼                                        ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                      Sınıf Matrisi (2'li Sıralar)                       │
-│  [Öğretmen Masası & Tahta]                                             │
+│                      ClassroomGrid (2'li Sıralar)                      │
+│  [Öğretmen Kürsüsü & Akıllı Tahta]                                     │
 │  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐                │
-│  │ Sıra 1 (S-Sol│   │ Sıra 2 (Orta)│   │ Sıra 3 (Sağ) │ (Ön Sıra)      │
+│  │ 1. Sıra Sol  │   │ 1. Sıra Orta │   │ 1. Sıra Sağ  │ (Ön Sıra)      │
 │  └──────────────┘   └──────────────┘   └──────────────┘                │
 │  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐                │
-│  │ Sıra 4       │   │ Sıra 5       │   │ Sıra 6       │ (Arka Sıra)    │
+│  │ 2. Sıra Sol  │   │ 2. Sıra Orta │   │ 2. Sıra Sağ  │                │
 │  └──────────────┘   └──────────────┘   └──────────────┘                │
+│  [Yerleşmemiş Öğrenci Havuzu / Drawer]                                │
 └────────────────────────────────────┬───────────────────────────────────┘
                                      │
                                      ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │             Off-Screen High-Fidelity A4 Landscape PDF Engine           │
-│  - Sabit 1200px genişlik, inline HEX renkler, kurumsal antet          │
-│  - html2canvas -> jsPDF -> print/download -> DOM temizliği             │
+│  - left: -9999px; width: 1200px; inline HEX renkler                    │
+│  - html2canvas (scale: 2) -> jsPDF (landscape) -> pdf.save()           │
+│  - finally: DOM temizliği (removeChild)                                │
 └────────────────────────────────────────────────────────────────────────┘
-```
-
-#### Core Data Models
-```typescript
-interface Student {
-  id: string;
-  number: string;
-  name: string;
-  gender: 'female' | 'male';
-  academicLevel: 'high' | 'medium' | 'developing';
-  specialNeeds: {
-    frontRowRequired: boolean; // Görme / İşitme gereksinimi
-    notes?: string;
-  };
-  avoidWithStudentIds: string[]; // Birlikte oturmaması gerekenler
-  observationNotes?: string;
-}
-
-interface DeskSlot {
-  deskId: string;
-  row: number;
-  column: number;
-  seatPosition: 'left' | 'right';
-  studentId: string | null;
-}
-
-interface Classroom {
-  id: string;
-  name: string; // Örn: 9-A
-  advisoryTeacher: string; // Danışman Öğretmen
-  academicYear: string; // 2026-2027
-  rowsCount: number;
-  columnsCount: number;
-  students: Student[];
-  layout: DeskSlot[];
-}
 ```
 
 ---
 
 ### 5. Implementation Steps & Verification Plan
 
-1. **Paket ve Yapılandırma**:
-   - `package.json` içine `build`, `predeploy`, `deploy` (`gh-pages -d dist`) ekleme.
-   - Gerekli kütüphaneleri yükleme (`jspdf`, `html2canvas`, `firebase`).
-   - `vite.config.ts`: Base URL yapılandırması (`/oturma_plani/`).
-2. **Kimlik Doğrulama & ALKEV Domain Güvenliği**:
-   - `src/lib/firebase.ts` ve `src/context/AuthContext.tsx`.
-   - `@alkev.k12.tr` kuralı kontrolü, hatalı durumlarda `signOut()` ve kullanıcı bilgilendirmesi.
-   - Demo / Test Öğretmen modu.
-3. **Akıllı Oturma Motoru (`seatingAlgorithm.ts`)**:
-   - Ön sıra görme/işitme öncelikleri yerleşimi.
-   - Çiftli sıralarda cinsiyet ve akademik seviye dengelemesi.
-   - Birlikte oturmaması gereken öğrencileri ayırma.
-4. **A4 Yatay PDF Şablonu & Dışa Aktarıcı (`pdfExport.ts`)**:
-   - Ekran dışı 1200px sabit genişlikli canvas render motoru.
-   - `[Danışman Öğretmen] Danışmanlığında [Sınıf Adı] Sınıfı` başlığı.
-5. **UI & Mobil Uyum (Tailwind CSS)**:
-   - Esnek Navbar (`flex-col sm:flex-row`).
-   - Öğrenci Gözlem Paneli alt boşluğu (`pb-28`).
-   - Sürükle-bırak veya tek tıkla koltuk değiştirme (swap) kontrolü.
-6. **Dokümantasyon Dosyaları**:
-   - Proje kökünde `PRD.md`, `AGENTS.md`, `Design-System.md`, `Architecture.md` eksiksiz oluşturulması.
-7. **Doğrulama**:
-   - `compile_applet` ile sıfır derleme hatasının doğrulanması.
+1. **Vite ve Package.json Yapılandırması**:
+   - `vite.config.ts` ve `vite.config.js`: `base: command === 'serve' ? '/' : '/oturmaPlani/'` ve `server: { port: 3000, host: '0.0.0.0' }`.
+   - `package.json`:
+     ```json
+     "scripts": {
+       "dev": "vite",
+       "build": "vite build",
+       "predeploy": "npm run build",
+       "deploy": "gh-pages -d dist"
+     }
+     ```
+   - `gh-pages` bağımlılığı kontrolü.
+2. **Firebase & Domain Doğrulaması**:
+   - `oturma-plani-4448d` yapılandırması ve `@alkev.k12.tr` kısıtlaması, `auth.signOut()`, `loading: false`.
+3. **Mobil ve PDF İyileştirmeleri**:
+   - `Navbar`: `flex-col sm:flex-row`.
+   - `StudentObservationModal`: `pb-28`.
+   - `pdfExport`: 1200px sabit genişlikli A4 Yatay motoru.
+4. **Dokümantasyon Güncellemeleri**:
+   - `PRD.md`, `AGENTS.md`, `Design-System.md`, `Architecture.md` dosyalarının `oturmaPlani` adıyla güncellenmesi.
+5. **Doğrulama**:
+   - `compile_applet` ve `lint_applet` ile sıfır hata testi.

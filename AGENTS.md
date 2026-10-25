@@ -24,14 +24,23 @@ Bu dosya, Smart Classroom Seating (Akıllı Sınıf Oturma Planı) projesinde ko
    - Öğrenci Takip & Gözlem Paneli içindeki kaydırılabilir alanda `pb-28` padding değeri korunmalıdır.
 
 4. **GitHub Pages Dağıtımı & Vite Yapılandırması**:
-   - `vite.config.ts`: `base: command === 'serve' ? '/' : '/oturma_plani/'` kuralına sadık kalmalıdır.
-   - `package.json` içindeki `"predeploy": "npm run build"` ve `"deploy": "gh-pages -d dist"` scriptleri silinmemelidir.
+   - `vite.config.js` ve `vite.config.ts`: `base: command === 'serve' ? '/' : '/oturmaPlani/'` kuralına sadık kalmalıdır.
+   - `package.json` içindeki betikler:
+     ```json
+     "scripts": {
+       "dev": "vite",
+       "build": "vite build",
+       "predeploy": "npm run build",
+       "deploy": "gh-pages -d dist"
+     }
+     ```
+   - `gh-pages` paketi bağımlılıklarda korunmalıdır.
 
 ---
 
 ### 2. Dosya Organizasyonu ve Sorumluluklar
 - `src/context/AuthContext.tsx`: Firebase kimlik doğrulama, domain filtreleme ve test oturumu.
-- `src/lib/firebase.ts`: Firebase istemci başlatma ve `isAlkevEmail` fonksiyonu.
+- `src/lib/firebase.ts`: Firebase istemci başlatma ve `isAlkevEmail` fonksiyonu (`oturma-plani-4448d`).
 - `src/utils/pdfExport.ts`: Ekran dışı A4 Yatay PDF üretim motoru.
 - `src/utils/seatingAlgorithm.ts`: Çok kriterli akıllı oturma ve pedagojik denge algoritması.
 - `src/components/Navbar.tsx`: Mobil duyarlı kurumsal üst bar.

@@ -1,6 +1,6 @@
 # Architecture.md - Sistem ve Teknik Mimari
 
-Bu doküman, Smart Classroom Seating uygulamasının bileşen hiyerarşisini, veri akışını, güvenlik katmanını ve dışa aktarma mekanizmasını açıklar.
+Bu doküman, Smart Classroom Seating (`oturmaPlani`) uygulamasının bileşen hiyerarşisini, veri akışını, güvenlik katmanını ve dışa aktarma mekanizmasını açıklar.
 
 ---
 
@@ -73,7 +73,15 @@ Bu doküman, Smart Classroom Seating uygulamasının bileşen hiyerarşisini, ve
 ---
 
 ### 5. Dağıtım ve Yayınlama (Deployment)
-- **GitHub Pages:**
-  - `vite.config.ts`: `base: command === 'serve' ? '/' : '/oturma_plani/'`
-  - `npm run build`: `dist` klasörü üretir.
-  - `npm run deploy`: `gh-pages -d dist` komutuyla GitHub Pages dalına aktarır.
+- **Depo (Repository):** `oturmaPlani`
+- **GitHub Pages Base Yolu:** `base: '/oturmaPlani/'` (`vite.config.js` ve `vite.config.ts`)
+- **Scriptler:**
+  ```json
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
+  }
+  ```
+- **gh-pages:** `npm run deploy` komutu ile `dist` içeriği doğrudan GitHub Pages dalına aktarılır.

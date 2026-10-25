@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementation plan for Smart Classroom Seating (Akıllı Sınıf Oturma Planı) with ALKEV domain security, off-screen A4 landscape PDF export, responsive mobile design, and multi-criteria smart seating algorithm.",
-  "updatedAt":  "2026-10-25T20:57:59.900166200Z",
+  "summary":  "Updated implementation plan for Smart Classroom Seating tailored to the new 'oturmaPlani' repository, with base: '/oturmaPlani/', exact scripts configuration, strict ALKEV domain security, mobile pb-28 padding, and off-screen A4 PDF engine.",
+  "updatedAt":  "2026-10-25T21:21:40.410552302Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
