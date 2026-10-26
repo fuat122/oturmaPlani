@@ -34,11 +34,13 @@ if (!getApps().length) {
 
 export const auth: Auth = getAuth(app);
 export const db: Firestore = getFirestore(app);
-export const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({
-  prompt: 'select_account',
-  hd: 'alkev.k12.tr' // Google Workspace domain hint for ALKEV
+const provider = new GoogleAuthProvider();
+provider.setCustomParameters({
+  hd: 'alkev.k12.tr',
+  prompt: 'select_account'
 });
+
+export { provider, provider as googleProvider };
 
 /**
  * Domain validity check: Strictly accepts only emails ending with @alkev.k12.tr

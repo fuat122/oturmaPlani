@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
   auth,
+  provider,
   googleProvider,
   signInWithPopup,
   signOut as firebaseSignOut,
@@ -88,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     setAuthError(null);
     try {
-      const result = await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, provider);
       const email = result.user.email || '';
       if (!isAlkevEmail(email)) {
         // Enforce immediate sign out
