@@ -56,6 +56,13 @@ Bu doküman, Smart Classroom Seating (`oturmaPlani`) uygulamasının bileşen hi
 
 ---
 
+### 2.1. Veri Kalıcılığı ve Firebase Firestore Senkronizasyonu (`classroomService.ts`)
+- **İki Katmanlı Hibrit Saklama:** Tüm sınıf ve öğrenci güncellemeleri hem `localStorage`'a anında yazılır hem de Firebase Firestore `classrooms` koleksiyonuna `setDoc` ile asenkron kaydedilir.
+- **Tekli ve Toplu Öğrenci Ekleme:** Öğrenci eklendiği anda local state ve veritabanı senkronize edilir, grid derhal re-render edilerek yeni öğrenciyi gösterir.
+- **Silme Temizliği:** Bir öğrenci silindiğinde oturduğu sıra da otomatik olarak boşaltılarak veri bütünlüğü korunur.
+
+---
+
 ### 3. Akıllı Oturma Algoritması (`seatingAlgorithm.ts`)
 1. **Öncelik 1 (Ön Sıra Kuralı):** `specialNeeds.frontRowRequired === true` olan öğrenciler doğrudan 1. sıradaki masalara önceliklendirilir.
 2. **Öncelik 2 (Ayrılma / Çatışma Kuralı):** `avoidWithStudentIds` listesinde birbirini içeren öğrenciler asla aynı sırada yan yana veya doğrudan komşu koltukta oturamaz.

@@ -4,6 +4,7 @@ import {
   Sparkles,
   FileDown,
   Users,
+  UserPlus,
   RotateCcw,
   SlidersHorizontal,
   CheckCircle,
@@ -17,6 +18,7 @@ interface ClassroomToolbarProps {
   onRunSmartSeating: () => void;
   onExportPDF: () => void;
   onOpenObservationModal: () => void;
+  onOpenAddStudent: () => void;
   onClearDesks: () => void;
 }
 
@@ -26,6 +28,7 @@ export const ClassroomToolbar: React.FC<ClassroomToolbarProps> = ({
   onRunSmartSeating,
   onExportPDF,
   onOpenObservationModal,
+  onOpenAddStudent,
   onClearDesks
 }) => {
   const studentMap = new Map<string, Student>(classroom.students.map(s => [s.id, s]));
@@ -58,7 +61,6 @@ export const ClassroomToolbar: React.FC<ClassroomToolbarProps> = ({
   });
 
   const totalSeats = classroom.desks.length * 2;
-  const isAllSeated = totalSeated === classroom.students.length && classroom.students.length > 0;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs mb-6 space-y-4">
@@ -92,14 +94,23 @@ export const ClassroomToolbar: React.FC<ClassroomToolbarProps> = ({
           </button>
         </div>
 
-        {/* Sağ Eylem Grubu */}
-        <div className="flex items-center gap-2">
+        {/* Sağ Eylem Grubu: Hızlı Öğrenci Ekle, Gözlem Paneli, Temizle */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Hızlı Öğrenci Ekle Butonu */}
+          <button
+            onClick={onOpenAddStudent}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+          >
+            <UserPlus className="w-4 h-4 text-blue-700" />
+            <span>+ Öğrenci Ekle</span>
+          </button>
+
           <button
             onClick={onOpenObservationModal}
-            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
           >
             <Users className="w-4 h-4 text-slate-600" />
-            <span>Öğrenci Gözlem Paneli ({classroom.students.length})</span>
+            <span>Öğrenci Listesi ({classroom.students.length})</span>
           </button>
 
           <button

@@ -8,19 +8,23 @@ import {
   UserCheck,
   CheckCircle,
   HelpCircle,
-  Sparkles
+  Sparkles,
+  UserPlus,
+  Users
 } from 'lucide-react';
 
 interface ClassroomGridProps {
   classroom: Classroom;
   onUpdateDesks: (desks: Desk[]) => void;
   onSelectStudentToEdit?: (student: Student) => void;
+  onOpenAddStudent?: () => void;
 }
 
 export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
   classroom,
   onUpdateDesks,
-  onSelectStudentToEdit
+  onSelectStudentToEdit,
+  onOpenAddStudent
 }) => {
   // Selected slot for swapping / moving
   const [selectedSeat, setSelectedSeat] = useState<{
@@ -137,6 +141,30 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
   return (
     <div className="space-y-6">
       
+      {/* Sınıfta Öğrenci Yoksa Uyarı Alanı */}
+      {classroom.students.length === 0 && (
+        <div className="bg-white rounded-2xl border-2 border-dashed border-blue-200 p-8 text-center shadow-xs">
+          <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-900 flex items-center justify-center mx-auto mb-3">
+            <Users className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-slate-800">
+            "{classroom.name}" Sınıfında Henüz Öğrenci Yok
+          </h3>
+          <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+            Oturma planını oluşturmaya başlamak için tekli öğrenci ekleyebilir veya toplu liste (Excel / e-Okul) yapıştırabilirsiniz.
+          </p>
+          {onOpenAddStudent && (
+            <button
+              onClick={onOpenAddStudent}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer"
+            >
+              <UserPlus className="w-4 h-4" />
+              Öğrenci Ekle
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Tahta & Öğretmen Kürsüsü Bölgesi */}
       <div className="bg-slate-900 text-white rounded-2xl p-4 sm:p-5 shadow-sm text-center relative overflow-hidden border border-slate-800">
         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 hidden sm:block uppercase tracking-wider">
@@ -168,7 +196,7 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
           </div>
           <button
             onClick={() => setSelectedSeat(null)}
-            className="text-xs font-bold text-blue-700 hover:text-blue-900 px-2 py-1 bg-white rounded border border-blue-200"
+            className="text-xs font-bold text-blue-700 hover:text-blue-900 px-2 py-1 bg-white rounded border border-blue-200 cursor-pointer"
           >
             Vazgeç
           </button>
@@ -280,17 +308,28 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
 
       {/* Yerleşmemiş Öğrenci Havuzu (Eğer varsa) */}
       {unseatedStudents.length > 0 && (
-        <div className="bg-amber-50/60 border border-amber-200 rounded-2xl p-4 sm:p-5">
+        <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 sm:p-5 shadow-2xs">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
               <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wider">
-                Henüz Yerleşmemiş Öğrenciler ({unseatedStudents.length})
+                Henüz Sıraya Yerleşmemiş Öğrenciler ({unseatedStudents.length})
               </h4>
             </div>
-            <span className="text-[11px] text-amber-700">
-              Koltuk atamak için öğrenciye, ardından boş sıraya tıklayınız.
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] text-amber-800 hidden sm:inline">
+                Öğrenciye, ardından boş sıraya tıklayarak koltuğa atayınız.
+              </span>
+              {onOpenAddStudent && (
+                <button
+                  onClick={onOpenAddStudent}
+                  className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  Yeni Ekle
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -306,10 +345,10 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
                       isSelected ? null : { type: 'unseated', studentId: student.id }
                     )
                   }
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
                     isSelected
-                      ? 'bg-blue-600 text-white border-blue-700 shadow-md ring-2 ring-blue-300'
-                      : 'bg-white text-slate-800 border-slate-300 hover:border-slate-400'
+                      ? 'bg-blue-600 text-white border-blue-700 shadow-md ring-2 ring-blue-300 font-bold'
+                      : 'bg-white text-slate-800 border-slate-300 hover:border-slate-400 hover:shadow-2xs'
                   }`}
                 >
                   <span
@@ -407,7 +446,7 @@ const SeatSlot: React.FC<SeatSlotProps> = ({
           <button
             onClick={onRemove}
             title="Koltuktan Kaldır"
-            className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-red-600 rounded transition-opacity"
+            className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-red-600 rounded transition-opacity cursor-pointer"
           >
             <X className="w-3 h-3" />
           </button>

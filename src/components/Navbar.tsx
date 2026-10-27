@@ -52,7 +52,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Mobil Sınıf Badge */}
           <div className="sm:hidden text-xs font-bold text-blue-900 bg-blue-50 px-2 py-1 rounded-md border border-blue-200">
-            {activeClassroom.name} · {activeClassroom.advisoryTeacher}
+            {activeClassroom ? `${activeClassroom.name} · ${activeClassroom.advisoryTeacher}` : 'Sınıf Seçiniz'}
           </div>
         </div>
 
@@ -61,13 +61,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="relative inline-block text-left w-full sm:w-auto">
             <button
               onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="w-full sm:w-auto inline-flex items-center justify-between gap-2 px-3.5 py-1.5 text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200"
+              className="w-full sm:w-auto inline-flex items-center justify-between gap-2 px-3.5 py-1.5 text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200 cursor-pointer"
             >
               <div className="flex items-center gap-2 truncate">
                 <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                <span className="font-bold text-blue-950">{activeClassroom.name}</span>
+                <span className="font-bold text-blue-950">{activeClassroom?.name || 'Sınıf Seçiniz'}</span>
                 <span className="text-slate-400 font-normal">|</span>
-                <span className="text-slate-600 truncate">{activeClassroom.advisoryTeacher}</span>
+                <span className="text-slate-600 truncate">{activeClassroom?.advisoryTeacher || 'Yeni Sınıf Oluştur'}</span>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
             </button>
