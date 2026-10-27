@@ -5,8 +5,20 @@ import { LoginView } from './components/LoginView';
 import { ClassroomGrid } from './components/ClassroomGrid';
 import { ClassroomToolbar } from './components/ClassroomToolbar';
 import { StudentObservationModal } from './components/StudentObservationModal';
+import { StudentReportModal } from './components/StudentReportModal';
 import { ClassModal } from './components/ClassModal';
-import { Classroom, Student, Desk } from './types';
+import {
+  StudentCommentModal,
+  ClassroomCommentModal
+} from './components/ObservationCommentModals';
+import {
+  Classroom,
+  Student,
+  Desk,
+  StudentObservationLog,
+  ClassroomLog,
+  TeacherRole
+} from './types';
 import { defaultClassrooms, generateDefaultDesks } from './data/mockData';
 import { runSmartSeating } from './utils/seatingAlgorithm';
 import { exportClassroomSeatingPDF } from './utils/pdfExport';
@@ -25,9 +37,27 @@ import {
 
 const LOCAL_STORAGE_CLASSES_KEY = 'alkev_classrooms_storage_v1';
 const LOCAL_STORAGE_ACTIVE_CLASS_ID = 'alkev_active_classroom_id';
+const LOCAL_STORAGE_ROLE_KEY = 'alkev_teacher_role_v1';
 
 const ClassroomApp: React.FC = () => {
   const { currentUser, loading } = useAuth();
+
+  // Role state: advisory (Sınıf Rehber Öğretmeni) vs. branch (Branş Öğretmeni)
+  const [userRole, setUserRole] = useState<TeacherRole>(() => {
+    const saved = localStorage.getItem(LOCAL_STORAGE_ROLE_KEY);
+    return saved === 'branch' ? 'branch' : 'advisory';
+  });
+
+  const handleRoleChange = (newRole: TeacherRole) => {
+    setUserRole(newRole);
+    localStorage.setItem(LOCAL_STORAGE_ROLE_KEY, newRole);
+    showToast(
+      newRole === 'advisory'
+        ? 'Sınıf Rehber Öğretmeni moduna geçildi (Tam Yetkili).'
+        : 'Branş Öğretmeni moduna geçildi (Salt Okunur).',
+      'info'
+    );
+  };
 
   // Classrooms State with LocalStorage Persistence
   const [classrooms, setClassrooms] = useState<Classroom[]>(() => {
@@ -53,6 +83,11 @@ const ClassroomApp: React.FC = () => {
   const [observationModalMode, setObservationModalMode] = useState<'view' | 'add'>('view');
   const [isNewClassModalOpen, setIsNewClassModalOpen] = useState(false);
   const [isEditClassModalOpen, setIsEditClassModalOpen] = useState(false);
+  const [isStudentReportModalOpen, setIsStudentReportModalOpen] = useState(false);
+
+  // Lesson Comments modal states (Individual student & class-wide)
+  const [selectedStudentForComment, setSelectedStudentForComment] = useState<Student | null>(null);
+  const [isClassroomCommentModalOpen, setIsClassroomCommentModalOpen] = useState(false);
 
   // PDF Export loading state
   const [isExportingPDF, setIsExportingPDF] = useState(false);
@@ -121,14 +156,22 @@ const ClassroomApp: React.FC = () => {
     await saveClassroomToFirestore(mergedClassroom);
   };
 
-  // Update desk positions
+  // Update desk positions (Only if not branch)
   const handleUpdateDesks = (newDesks: Desk[]) => {
+    if (userRole === 'branch') {
+      showToast('Branş öğretmenleri oturma düzenini değiştiremez.', 'error');
+      return;
+    }
     updateActiveClassroom({ desks: newDesks });
   };
 
   // Update students list (Add, Edit, Delete)
   const handleUpdateStudents = (newStudents: Student[]) => {
     if (!activeClassroom) return;
+    if (userRole === 'branch') {
+      showToast('Branş öğretmenleri öğrenci listesini güncelleyemez.', 'error');
+      return;
+    }
 
     // Remove any deleted students from desks so no dangling IDs remain
     const newStudentIds = new Set(newStudents.map((s) => s.id));
@@ -146,8 +189,114 @@ const ClassroomApp: React.FC = () => {
     showToast('Öğrenci listesi ve veritabanı başarıyla güncellendi.', 'success');
   };
 
+  // Bireysel Ders İçi Öğrenci Yorumu Kaydetme
+  const handleSaveStudentComment = (studentId: string, newObservation: StudentObservationLog) => {
+    if (!activeClassroom) return;
+    if (userRole === 'branch') {
+      showToast('Branş öğretmenleri yorum ekleyemez.', 'error');
+      return;
+    }
+
+    const updatedStudents = activeClassroom.students.map((s) => {
+      if (s.id === studentId) {
+        return {
+          ...s,
+          observations: [...(s.observations || []), newObservation]
+        };
+      }
+      return s;
+    });
+
+    updateActiveClassroom({ students: updatedStudents });
+    setSelectedStudentForComment((prev) =>
+      prev && prev.id === studentId
+        ? { ...prev, observations: [...(prev.observations || []), newObservation] }
+        : prev
+    );
+    showToast('Öğrenciye ders içi bireysel yorum eklendi.', 'success');
+  };
+
+  // Bireysel Yorum Silme
+  const handleDeleteStudentComment = (studentId: string, observationId: string) => {
+    if (!activeClassroom) return;
+    if (userRole === 'branch') {
+      showToast('Branş öğretmenleri yorum silemez.', 'error');
+      return;
+    }
+
+    const updatedStudents = activeClassroom.students.map((s) => {
+      if (s.id === studentId) {
+        return {
+          ...s,
+          observations: (s.observations || []).filter((o) => o.id !== observationId)
+        };
+      }
+      return s;
+    });
+
+    updateActiveClassroom({ students: updatedStudents });
+    setSelectedStudentForComment((prev) =>
+      prev && prev.id === studentId
+        ? { ...prev, observations: (prev.observations || []).filter((o) => o.id !== observationId) }
+        : prev
+    );
+    showToast('Yorum silindi.', 'info');
+  };
+
+  // Topluca Sınıfa Yorum Kaydetme
+  const handleSaveClassroomLog = (newLog: ClassroomLog, applyToAllStudents: boolean) => {
+    if (!activeClassroom) return;
+    if (userRole === 'branch') {
+      showToast('Branş öğretmenleri sınıf notu ekleyemez.', 'error');
+      return;
+    }
+
+    const updatedLogs = [...(activeClassroom.classroomLogs || []), newLog];
+
+    let updatedStudents = activeClassroom.students;
+    if (applyToAllStudents) {
+      const studentObservationFromClassLog: StudentObservationLog = {
+        id: 'obs_class_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        date: newLog.date,
+        teacherName: newLog.teacherName,
+        note: `[Sınıf Notu - ${newLog.lessonName || 'Ders'}]: ${newLog.note}`,
+        tag: 'diger'
+      };
+      updatedStudents = activeClassroom.students.map((s) => ({
+        ...s,
+        observations: [...(s.observations || []), studentObservationFromClassLog]
+      }));
+    }
+
+    updateActiveClassroom({
+      classroomLogs: updatedLogs,
+      students: updatedStudents
+    });
+
+    showToast(
+      applyToAllStudents
+        ? 'Sınıf notu kaydedildi ve tüm öğrencilerin profiline işlendi.'
+        : 'Sınıf genel ders notu başarıyla kaydedildi.',
+      'success'
+    );
+  };
+
+  // Sınıf Yorumu Silme
+  const handleDeleteClassroomLog = (logId: string) => {
+    if (!activeClassroom) return;
+    if (userRole === 'branch') return;
+    const updatedLogs = (activeClassroom.classroomLogs || []).filter((l) => l.id !== logId);
+    updateActiveClassroom({ classroomLogs: updatedLogs });
+    showToast('Sınıf notu silindi.', 'info');
+  };
+
   // Run Smart Seating Algorithm
   const handleRunSmartSeating = () => {
+    if (userRole === 'branch') {
+      showToast('Branş öğretmenleri yerleşim yapamaz.', 'error');
+      return;
+    }
+
     if (!activeClassroom) {
       showToast('Lütfen önce bir sınıf seçin veya oluşturun.', 'error');
       return;
@@ -169,6 +318,7 @@ const ClassroomApp: React.FC = () => {
 
   // Clear all seats
   const handleClearDesks = () => {
+    if (userRole === 'branch') return;
     if (!activeClassroom) return;
     if (confirm('Tüm sıralardaki öğrencileri kaldırmak istediğinize emin misiniz?')) {
       const cleared = activeClassroom.desks.map((d) => ({
@@ -181,8 +331,13 @@ const ClassroomApp: React.FC = () => {
     }
   };
 
-  // Export PDF
+  // Export PDF (Sadece Sınıf Öğretmeni İndirebilir)
   const handleExportPDF = async () => {
+    if (userRole === 'branch') {
+      showToast('Sınıf oturma planı PDF çıktısı yalnızca sınıf rehber öğretmeni tarafından indirilebilir.', 'error');
+      return;
+    }
+
     if (!activeClassroom) {
       showToast('Lütfen önce bir sınıf seçin veya oluşturun.', 'error');
       return;
@@ -269,10 +424,12 @@ const ClassroomApp: React.FC = () => {
         </div>
       )}
 
-      {/* Navbar with responsive flex-col sm:flex-row layout */}
+      {/* Navbar with official ALKEV logo & TeacherRole switcher */}
       <Navbar
         classrooms={classrooms}
         activeClassroom={activeClassroom || defaultClassrooms[0]}
+        userRole={userRole}
+        onRoleChange={handleRoleChange}
         onSelectClassroom={(c) => setActiveClassId(c.id)}
         onOpenNewClassModal={() => setIsNewClassModalOpen(true)}
         onOpenEditClassModal={() => setIsEditClassModalOpen(true)}
@@ -293,15 +450,17 @@ const ClassroomApp: React.FC = () => {
             <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-md mx-auto leading-relaxed">
               Oturma planı ve öğrenci listesini yönetebilmek için üst menüden kayıtlı bir sınıf seçebilir ya da hemen yeni bir sınıf oluşturabilirsiniz.
             </p>
-            <div className="mt-6 flex items-center justify-center gap-3">
-              <button
-                onClick={() => setIsNewClassModalOpen(true)}
-                className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-2"
-              >
-                <PlusCircle className="w-4 h-4" />
-                + Yeni Sınıf Oluştur
-              </button>
-            </div>
+            {userRole === 'advisory' && (
+              <div className="mt-6 flex items-center justify-center gap-3">
+                <button
+                  onClick={() => setIsNewClassModalOpen(true)}
+                  className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-2"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  + Yeni Sınıf Oluştur
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <>
@@ -312,39 +471,52 @@ const ClassroomApp: React.FC = () => {
                   {activeClassroom.name} Sınıfı Oturma Düzeni
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                  Rehber Öğretmen:{' '}
+                  Danışman Öğretmen:{' '}
                   <span className="font-semibold text-slate-800">
                     {activeClassroom.advisoryTeacher}
                   </span>
                   {' · '}
-                  Öğrenci Mevcudu:{' '}
+                  Mevcut:{' '}
                   <span className="font-semibold text-slate-800">
-                    {activeClassroom.students.length}
+                    {activeClassroom.students.length} Öğrenci
                   </span>
                 </p>
               </div>
 
               <div className="text-xs text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-xl self-start sm:self-auto shadow-2xs">
-                <span className="font-semibold text-blue-900">İpucu:</span> Öğrencileri karşılıklı yer değiştirmek için sırasıyla iki koltuğa tıklayınız.
+                {userRole === 'advisory' ? (
+                  <span>
+                    <span className="font-semibold text-blue-900">Danışman Modu:</span> Koltuklara tıklayarak yer değiştirebilir, ders yorumu ekleyebilirsiniz.
+                  </span>
+                ) : (
+                  <span>
+                    <span className="font-semibold text-amber-800">Branş Modu:</span> Sınıf düzeni salt okunur biçimde görüntülenmektedir.
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* Toolbar (Smart Seating, PDF, Observation Modal, Add Student) */}
+            {/* Toolbar (Smart Seating, PDF, Observation Modal, Add Student, Class Comment, Student Report) */}
             <ClassroomToolbar
               classroom={activeClassroom}
+              userRole={userRole}
               isExportingPDF={isExportingPDF}
               onRunSmartSeating={handleRunSmartSeating}
               onExportPDF={handleExportPDF}
               onOpenObservationModal={() => openObservationModal('view')}
               onOpenAddStudent={() => openObservationModal('add')}
+              onOpenClassroomComment={() => setIsClassroomCommentModalOpen(true)}
+              onOpenStudentReport={() => setIsStudentReportModalOpen(true)}
               onClearDesks={handleClearDesks}
             />
 
             {/* Interactive Classroom Grid */}
             <ClassroomGrid
               classroom={activeClassroom}
+              userRole={userRole}
               onUpdateDesks={handleUpdateDesks}
               onOpenAddStudent={() => openObservationModal('add')}
+              onOpenStudentComment={(student) => setSelectedStudentForComment(student)}
             />
           </>
         )}
@@ -363,9 +535,18 @@ const ClassroomApp: React.FC = () => {
         <StudentObservationModal
           students={activeClassroom.students}
           classroomName={activeClassroom.name}
+          userRole={userRole}
           initialMode={observationModalMode}
           onClose={() => setIsObservationModalOpen(false)}
           onUpdateStudents={handleUpdateStudents}
+        />
+      )}
+
+      {/* Öğrenci Yorum Raporu Modalı */}
+      {isStudentReportModalOpen && activeClassroom && (
+        <StudentReportModal
+          classroom={activeClassroom}
+          onClose={() => setIsStudentReportModalOpen(false)}
         />
       )}
 
@@ -381,6 +562,29 @@ const ClassroomApp: React.FC = () => {
           classroomToEdit={activeClassroom}
           onClose={() => setIsEditClassModalOpen(false)}
           onSaveClassroom={handleSaveEditClassroom}
+        />
+      )}
+
+      {/* Bireysel Öğrenci Ders Yorumu Modalı */}
+      {selectedStudentForComment && activeClassroom && (
+        <StudentCommentModal
+          student={selectedStudentForComment}
+          teacherName={currentUser.displayName || activeClassroom.advisoryTeacher}
+          onClose={() => setSelectedStudentForComment(null)}
+          onSaveComment={handleSaveStudentComment}
+          onDeleteComment={handleDeleteStudentComment}
+        />
+      )}
+
+      {/* Toplu Sınıf Yorumu Modalı */}
+      {isClassroomCommentModalOpen && activeClassroom && (
+        <ClassroomCommentModal
+          classroomName={activeClassroom.name}
+          advisoryTeacher={activeClassroom.advisoryTeacher}
+          classroomLogs={activeClassroom.classroomLogs || []}
+          onClose={() => setIsClassroomCommentModalOpen(false)}
+          onSaveClassroomLog={handleSaveClassroomLog}
+          onDeleteClassroomLog={handleDeleteClassroomLog}
         />
       )}
 

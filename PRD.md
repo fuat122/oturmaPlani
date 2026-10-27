@@ -2,13 +2,13 @@
 ## Smart Classroom Seating (Akıllı Sınıf Oturma Planı)
 **Kurum:** ALKEV Özel Okulları  
 **Depo (Repository):** `oturmaPlani`  
-**Sürüm:** 1.0.0  
+**Sürüm:** 1.2.0  
 **Hedef Kitle:** Sınıf Rehber Öğretmenleri, Branş Öğretmenleri, PDR Servisi ve Okul Yönetimi  
 
 ---
 
 ### 1. Amaç ve Vizyon
-Smart Classroom Seating, ALKEV Okulları öğretmenlerinin sınıf oturma planlarını pedagojik kriterler (görme/işitme özel gereksinimleri, kız-erkek dengesi, akademik seviye karması ve davranışsal uyarılar) doğrultusunda adil, hızlı ve hatasız bir biçimde düzenlemesini sağlayan web tabanlı bir platformdur.
+Smart Classroom Seating, ALKEV Okulları öğretmenlerinin sınıf oturma planlarını pedagojik kriterler (görme/işitme özel gereksinimleri, kız-erkek dengesi, davranışsal uyarılar ve akran desteği) doğrultusunda adil, hızlı ve hatasız bir biçimde düzenlemesini sağlayan web tabanlı bir platformdur.
 
 Uygulama, `oturmaPlani` GitHub Pages deposu üzerinde (`/oturmaPlani/` base yoluyla) canlı yayına alınmak üzere yapılandırılmıştır. Matbaa kalitesinde A4 Yatay PDF çıktısı üreterek sınıf kapılarına, öğretmen kürsülerine ve idari onay dosyalarına doğrudan basılabilir resmi doküman hazırlar.
 
@@ -38,26 +38,37 @@ Uygulama, `oturmaPlani` GitHub Pages deposu üzerinde (`/oturmaPlani/` base yolu
 - **Arayüz Bildirimi:** Giriş butonunun altında *"ℹ️ Yalnızca @alkev.k12.tr uzantılı kurumsal e-posta adresleri kabul edilmektedir."* uyarısı yer alır.
 - **Geliştirici/Önizleme Modu:** Yetkili geliştirme ortamları için test öğretmeni girişi (`ogretmen@alkev.k12.tr`) sunulur.
 
-#### 2.3. Mobil Responsive Arayüz (Tailwind CSS)
-- **Esnek Navbar:** Mobil ekranlarda dikey (`flex-col`), masaüstü ekranlarda yatay (`sm:flex-row`) düzende çalışır. Logo, sınıf seçici ve kullanıcı profili asla dikey taşma veya ekran dışına çıkma yapmaz.
-- **Öğrenci Takip & Gözlem Paneli:** Modal içi kaydırma alanına alt kısımda esnek padding (`pb-28`) eklenmiştir. Listenin en altındaki öğrenciler ekran altında kesilmez, rahatça kaydırılır.
+#### 2.3. Kurumsal Logo & Kimlik
+- **Resmi ALKEV Logosu:** `/public/assets/aistudio/alkev-logo-tr-2025_552f0d5d.png` dosyasındaki resmi ALKEV Özel Okulları amblemi ve tipografisi Navbar'da, Giriş ekranında ve A4 PDF belgesinde kullanılmaktadır.
 
-#### 2.4. Sıfır Çökme Garantili PDF Motoru
-- **Ekran Bağımsız Render:** Ekrandaki responsive DOM'u doğrudan resme dönüştürmek yerine, buton tetiklendiğinde DOM dışında (off-screen, `left: -9999px`) 1200px sabit genişlikte, standart HEX renkler kullanan A4 Yatay şablon oluşturulur.
-- **Zorunlu Başlık Formatı:** `[Danışman Öğretmen] Danışmanlığında [Sınıf Adı] Sınıfı`.
-- **Dönüştürme ve İndirme:** `html2canvas` ve `jsPDF` kütüphaneleriyle 2x retina netliğinde A4 yatay PDF üretilir ve indirilir.
-- **Temizlik Garantisi:** `finally` bloğu içerisinde geçici DOM şablonu silinir.
+#### 2.4. Rol Tabanlı Yetkilendirme (RBAC)
+- **Sınıf Rehber Öğretmeni (Danışman):** Sınıfın tam yetkilisidir. Koltuk takası (sürükle/tıkla), öğrenci ekleme/çıkarma/düzenleme, ders içi bireysel öğrenci yorumları, sınıf genel notu ve A4 Yatay PDF indirme yetkisine sahiptir.
+- **Branş Öğretmeni (Salt Okunur):** Sınıfa giren branş öğretmenleri sınıf düzenini yalnızca görüntüleyebilir. Sıra yer değişikliği yapamaz, öğrenci ekleyip çıkaramaz, yorum yazamaz ve PDF indiremez. Bu durum ekranda açık bir bilgilendirme rozetiyle belirtilir.
 
-#### 2.5. Akıllı Oturma Motoru (Multi-Criteria Optimization)
-- **Ön Sıra Gereksinimi:** Görme veya işitme gereksinimi olan öğrenciler öncelikle 1. sıraya yerleştirilir.
-- **Davranışsal Ayrıştırma:** Birbirleriyle konuşan veya ders düzenini bozan öğrenciler (avoid list) aynı sıraya veya komşu sıralara verilmez.
-- **Cinsiyet ve Akademik Denge:** Çiftli sıralarda kız-erkek dengesi ile akran öğrenmesini destekleyecek akademik seviye dağılımı sağlanır.
+#### 2.5. Öğrenci Cinsiyet Yönetimi & Pastel Sıra Renkleri
+- **Kız Öğrenciler:** Açık pastel pembe zemin (`#FDF2F8`, kenarlık `#FBCFE8`, metin `#831843`) ile gösterilir.
+- **Erkek Öğrenciler:** Açık pastel mavi zemin (`#EFF6FF`, kenarlık `#BFDBFE`, metin `#1E3A8A`) ile gösterilir.
+- **Göz Yormayan Tasarım:** Açık tonlar kullanılarak sınıf genel görünümünde sakin ve dengeli bir görsel ritim sağlanmıştır.
+
+#### 2.6. Başarı Düzeyi Etiketlemesinin Kaldırılması
+- Pedagojik ilkelere uygun olarak öğrencilerin başarı düzeyleri (ileri/orta/destek) arayüzden ve etiketlerden tamamen kaldırılmıştır. Öğretmenler öğrencilerin gelişimini doğrudan ders içi gözlem ve yorum sistemiyle takip eder.
+
+#### 2.7. Ders İçi Bireysel & Sınıf Genel Yorumları
+- **Bireysel Yorum:** Sınıf öğretmeni sıradaki her öğrenciye ders içi anlık gözlem notu, katılım takdiri veya rehberlik kaydı düşebilir.
+- **Sınıf Genel Notu:** Sınıfı oluşturan öğretmen, üst bardaki "Sınıf Notu" butonuyla tüm ders veya etkinlik için toplu not alabilir.
+- **Öğrenci Yorum Raporu:** "Yorum Raporu Al" butonuyla tüm öğrenci notları filtrelenebilir (kategoriye veya öğrenciye göre) ve yazdırılabilir / PDF yapılabilir.
+
+#### 2.8. Sıfır Çökme Garantili ve OKLCH-Korumalı PDF Motoru
+- **Sorun:** Modern Tailwind v4 stil sayfalarında bulunan `oklch()` renk fonksiyonları `html2canvas` motorunu çökertmektedir (`Attempting to parse an unsupported color function "oklch"`).
+- **Çözüm:** PDF motoru izole bir `<iframe>` (sandbox) içerisinde yalnızca standart HEX renk kodları (`#FFFFFF`, `#FDF2F8`, `#EFF6FF`, `#1E3A8A`) ve gömülü stiller kullanarak çalışır. Belge stili dışındaki CSS değişkenlerinden tamamen yalıtılmıştır.
+- **Format:** `[Danışman Öğretmen] Danışmanlığında [Sınıf Adı] Sınıfı Oturma Planı` başlığıyla, A4 Yatay, 2x retina netliğinde resmi kroki oluşturulur.
 
 ---
 
 ### 3. Kullanıcı Akışları
-1. **Giriş:** Öğretmen ALKEV kurumsal e-postasıyla giriş yapar.
-2. **Sınıf Yönetimi:** Açılır menüden sınıfını seçer veya yeni sınıf oluşturur.
-3. **Öğrenci Bilgileri:** Gözlem panelinden öğrenci notlarını, ön sıra gereksinimlerini ve kaçınma kurallarını düzenler.
-4. **Oturma Planlama:** Tek tıkla "Akıllı Yerleştir" çalıştırılır veya sıralar el ile tıklanarak değiştirilir (click-to-swap).
-5. **Raporlama:** "PDF İndir" ile resmi A4 yatay krokisi tek tıkla alınır.
+1. **Giriş:** Öğretmen `@alkev.k12.tr` Google Workspace hesabıyla giriş yapar.
+2. **Rol & Sınıf Seçimi:** Üst bardan sınıfı seçer; yetkisine göre Rehber Öğretmen veya Branş Öğretmeni modunu görüntüler.
+3. **Kadro Oluşturma:** Sınıf modalında veya öğrenci panelinde "Okul No - Ad Soyad - Cinsiyet" formatında tekli veya toplu kayıt yapılır.
+4. **Oturma Planlama:** Sınıf öğretmeni "Akıllı Yerleştir" ile kız-erkek dengesini ve ön sıra ihtiyaçlarını otomatik optimize eder veya el ile koltukları takas eder.
+5. **Ders İçi Takip:** Sıradaki öğrenciye tıklanarak not yazılır, "Sınıf Notu" ile genel ders kaydı alınır.
+6. **Raporlama & Belge:** "Yorum Raporu" ile not dökümü alınır; sınıf öğretmeni "PDF İndir" ile A4 Yatay çıktıyı hazırlar.

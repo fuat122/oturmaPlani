@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Classroom, Student, Desk } from '../types';
+import { Classroom, Student, Desk, TeacherRole } from '../types';
 import {
   Eye,
   AlertTriangle,
@@ -10,22 +10,32 @@ import {
   HelpCircle,
   Sparkles,
   UserPlus,
-  Users
+  Users,
+  MessageSquarePlus,
+  MessageSquare,
+  Lock,
+  Shield
 } from 'lucide-react';
 
 interface ClassroomGridProps {
   classroom: Classroom;
+  userRole?: TeacherRole;
   onUpdateDesks: (desks: Desk[]) => void;
   onSelectStudentToEdit?: (student: Student) => void;
   onOpenAddStudent?: () => void;
+  onOpenStudentComment?: (student: Student) => void;
 }
 
 export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
   classroom,
+  userRole = 'advisory',
   onUpdateDesks,
   onSelectStudentToEdit,
-  onOpenAddStudent
+  onOpenAddStudent,
+  onOpenStudentComment
 }) => {
+  const isBranch = userRole === 'branch';
+
   // Selected slot for swapping / moving
   const [selectedSeat, setSelectedSeat] = useState<{
     type: 'desk';
@@ -48,17 +58,17 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
   const unseatedStudents = classroom.students.filter(s => !seatedStudentIds.has(s.id));
 
   const handleSeatClick = (deskId: string, position: 'left' | 'right', currentStudentId: string | null) => {
+    // Branş öğretmeni yer değişikliği yapamaz
+    if (isBranch) return;
+
     if (!selectedSeat) {
-      // Nothing selected yet. If seat has a student, select it!
       if (currentStudentId) {
         setSelectedSeat({ type: 'desk', deskId, position, studentId: currentStudentId });
       }
       return;
     }
 
-    // A seat was already selected
     if (selectedSeat.type === 'unseated') {
-      // Move unseated student to this desk slot
       const studentToPlace = selectedSeat.studentId;
       const updatedDesks = classroom.desks.map(desk => {
         if (desk.id === deskId) {
@@ -75,17 +85,14 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
     }
 
     if (selectedSeat.type === 'desk') {
-      // Deselect if clicking the exact same seat
       if (selectedSeat.deskId === deskId && selectedSeat.position === position) {
         setSelectedSeat(null);
         return;
       }
 
-      // Swap between selected desk seat and this desk seat
       const sourceDeskId = selectedSeat.deskId;
       const sourcePosition = selectedSeat.position;
       const sourceStudentId = selectedSeat.studentId;
-
       const targetStudentId = currentStudentId;
 
       const updatedDesks = classroom.desks.map(desk => {
@@ -114,6 +121,8 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
 
   const handleRemoveFromSeat = (deskId: string, position: 'left' | 'right', e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isBranch) return;
+
     const updatedDesks = classroom.desks.map(desk => {
       if (desk.id === deskId) {
         return {
@@ -129,7 +138,6 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
     }
   };
 
-  // Group desks by row
   const rows = classroom.rowsCount || 4;
   const cols = classroom.columnsCount || 3;
 
@@ -141,6 +149,18 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
   return (
     <div className="space-y-6">
       
+      {/* Branş Öğretmeni Bilgilendirme Rozeti */}
+      {isBranch && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-3 text-xs text-amber-900 shadow-2xs">
+          <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+            <Lock className="w-4 h-4 text-amber-700" />
+          </div>
+          <div>
+            <span className="font-bold">Branş Öğretmeni Modu (Salt Okunur):</span> Sınıfın oturma düzeni ve öğrencileri danışman öğretmen tarafından kilitlenmiştir. Branş öğretmenleri yer değişikliği, yorum ekleme ve PDF indirme yetkisine sahip değildir.
+          </div>
+        </div>
+      )}
+
       {/* Sınıfta Öğrenci Yoksa Uyarı Alanı */}
       {classroom.students.length === 0 && (
         <div className="bg-white rounded-2xl border-2 border-dashed border-blue-200 p-8 text-center shadow-xs">
@@ -151,9 +171,9 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
             "{classroom.name}" Sınıfında Henüz Öğrenci Yok
           </h3>
           <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-            Oturma planını oluşturmaya başlamak için tekli öğrenci ekleyebilir veya toplu liste (Excel / e-Okul) yapıştırabilirsiniz.
+            Oturma planını oluşturmaya başlamak için öğrenci ekleyebilir veya toplu liste (Okul No - Ad Soyad) yapıştırabilirsiniz.
           </p>
-          {onOpenAddStudent && (
+          {!isBranch && onOpenAddStudent && (
             <button
               onClick={onOpenAddStudent}
               className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer"
@@ -181,8 +201,8 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
         </div>
       </div>
 
-      {/* Yer Değiştirme / Seçim İpucu */}
-      {selectedSeat && (
+      {/* Yer Değiştirme / Seçim İpucu (Sadece Sınıf Öğretmeninde) */}
+      {!isBranch && selectedSeat && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center justify-between animate-in fade-in duration-150">
           <div className="flex items-center gap-2 text-xs text-blue-900 font-medium">
             <ArrowRightLeft className="w-4 h-4 text-blue-600 animate-bounce" />
@@ -235,7 +255,7 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
                   const leftStudent = desk.leftStudentId ? studentMap.get(desk.leftStudentId) : null;
                   const rightStudent = desk.rightStudentId ? studentMap.get(desk.rightStudentId) : null;
 
-                  // Çatışma kontrolü (aynı sırada birbirini sevmeyenler oturuyor mu?)
+                  // Çatışma kontrolü
                   const hasConflict =
                     leftStudent &&
                     rightStudent &&
@@ -272,6 +292,7 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
                         {/* Sol Koltuk */}
                         <SeatSlot
                           student={leftStudent}
+                          isBranch={isBranch}
                           isSelected={
                             selectedSeat?.type === 'desk' &&
                             selectedSeat.deskId === desk.id &&
@@ -280,11 +301,13 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
                           isFrontRow={isFrontRow}
                           onClick={() => handleSeatClick(desk.id, 'left', desk.leftStudentId)}
                           onRemove={(e) => handleRemoveFromSeat(desk.id, 'left', e)}
+                          onOpenComment={onOpenStudentComment}
                         />
 
                         {/* Sağ Koltuk */}
                         <SeatSlot
                           student={rightStudent}
+                          isBranch={isBranch}
                           isSelected={
                             selectedSeat?.type === 'desk' &&
                             selectedSeat.deskId === desk.id &&
@@ -293,6 +316,7 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
                           isFrontRow={isFrontRow}
                           onClick={() => handleSeatClick(desk.id, 'right', desk.rightStudentId)}
                           onRemove={(e) => handleRemoveFromSeat(desk.id, 'right', e)}
+                          onOpenComment={onOpenStudentComment}
                         />
 
                       </div>
@@ -317,10 +341,12 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
               </h4>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-[11px] text-amber-800 hidden sm:inline">
-                Öğrenciye, ardından boş sıraya tıklayarak koltuğa atayınız.
-              </span>
-              {onOpenAddStudent && (
+              {!isBranch && (
+                <span className="text-[11px] text-amber-800 hidden sm:inline">
+                  Öğrenciye, ardından boş sıraya tıklayarak koltuğa atayınız.
+                </span>
+              )}
+              {!isBranch && onOpenAddStudent && (
                 <button
                   onClick={onOpenAddStudent}
                   className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
@@ -337,36 +363,63 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
               const isSelected =
                 selectedSeat?.type === 'unseated' && selectedSeat.studentId === student.id;
 
+              const isFemale = student.gender === 'female';
+
               return (
-                <button
+                <div
                   key={student.id}
-                  onClick={() =>
-                    setSelectedSeat(
-                      isSelected ? null : { type: 'unseated', studentId: student.id }
-                    )
-                  }
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
                     isSelected
                       ? 'bg-blue-600 text-white border-blue-700 shadow-md ring-2 ring-blue-300 font-bold'
-                      : 'bg-white text-slate-800 border-slate-300 hover:border-slate-400 hover:shadow-2xs'
+                      : isFemale
+                      ? 'bg-pink-50/90 text-pink-950 border-pink-200'
+                      : 'bg-sky-50/90 text-sky-950 border-sky-200'
                   }`}
                 >
-                  <span
-                    className={`font-bold ${
-                      isSelected
-                        ? 'text-white'
-                        : student.gender === 'female'
-                        ? 'text-purple-600'
-                        : 'text-blue-600'
-                    }`}
+                  <button
+                    disabled={isBranch}
+                    onClick={() =>
+                      !isBranch &&
+                      setSelectedSeat(
+                        isSelected ? null : { type: 'unseated', studentId: student.id }
+                      )
+                    }
+                    className={`flex items-center gap-1.5 ${isBranch ? 'cursor-default' : 'cursor-pointer'}`}
                   >
-                    #{student.number}
-                  </span>
-                  <span>{student.name}</span>
+                    <span
+                      className={`font-bold ${
+                        isSelected
+                          ? 'text-white'
+                          : isFemale
+                          ? 'text-pink-700'
+                          : 'text-sky-700'
+                      }`}
+                    >
+                      #{student.number}
+                    </span>
+                    <span>{student.name}</span>
+                    <span className="text-[10px] opacity-70">
+                      ({isFemale ? 'Kız' : 'Erkek'})
+                    </span>
+                  </button>
+
                   {student.specialNeeds.frontRowRequired && (
-                    <Eye className="w-3.5 h-3.5 text-amber-500" />
+                    <Eye className="w-3.5 h-3.5 text-amber-600" />
                   )}
-                </button>
+
+                  {!isBranch && onOpenStudentComment && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenStudentComment(student);
+                      }}
+                      title="Ders İçi Yorum Ekle"
+                      className="text-slate-400 hover:text-blue-900 p-0.5 cursor-pointer"
+                    >
+                      <MessageSquare className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -379,53 +432,68 @@ export const ClassroomGrid: React.FC<ClassroomGridProps> = ({
 
 interface SeatSlotProps {
   student: Student | null | undefined;
+  isBranch: boolean;
   isSelected: boolean;
   isFrontRow: boolean;
   onClick: () => void;
   onRemove: (e: React.MouseEvent) => void;
+  onOpenComment?: (student: Student) => void;
 }
 
 const SeatSlot: React.FC<SeatSlotProps> = ({
   student,
+  isBranch,
   isSelected,
   isFrontRow,
   onClick,
-  onRemove
+  onRemove,
+  onOpenComment
 }) => {
   if (!student) {
     return (
       <button
         onClick={onClick}
-        className={`h-24 rounded-lg border-2 border-dashed flex flex-col items-center justify-center transition-all p-2 text-center group cursor-pointer ${
-          isSelected
-            ? 'border-blue-500 bg-blue-50'
-            : 'border-slate-200 hover:border-slate-400 hover:bg-slate-50'
+        disabled={isBranch}
+        className={`h-24 rounded-lg border-2 border-dashed flex flex-col items-center justify-center transition-all p-2 text-center group ${
+          isBranch
+            ? 'border-slate-200 bg-slate-50/50 cursor-default opacity-60'
+            : isSelected
+            ? 'border-blue-500 bg-blue-50 cursor-pointer'
+            : 'border-slate-200 hover:border-slate-400 hover:bg-slate-50 cursor-pointer'
         }`}
       >
         <span className="text-xs text-slate-400 group-hover:text-slate-600 font-medium">
-          + Boş Koltuk
+          {isBranch ? 'Boş Koltuk' : '+ Boş Koltuk'}
         </span>
-        <span className="text-[10px] text-slate-300 mt-0.5">Yerleştir</span>
+        {!isBranch && <span className="text-[10px] text-slate-300 mt-0.5">Yerleştir</span>}
       </button>
     );
   }
 
   const isFemale = student.gender === 'female';
+  const commentCount = student.observations?.length || 0;
+
+  // Açık pastel tonları: Kızlar pembe (#FDF2F8 / border #FBCFE8), Erkekler mavi (#EFF6FF / border #BFDBFE)
+  const pastelStyles = isFemale
+    ? 'bg-pink-50/70 border-pink-200 text-pink-950 hover:border-pink-300'
+    : 'bg-sky-50/70 border-sky-200 text-sky-950 hover:border-sky-300';
 
   return (
     <div
-      onClick={onClick}
-      className={`h-24 rounded-lg border p-2 flex flex-col justify-between transition-all relative cursor-pointer group ${
+      onClick={isBranch ? undefined : onClick}
+      className={`h-24 rounded-lg border p-2 flex flex-col justify-between transition-all relative group ${
+        isBranch ? 'cursor-default' : 'cursor-pointer'
+      } ${
         isSelected
-          ? 'ring-2 ring-blue-600 bg-blue-50/80 border-blue-400 shadow-sm'
-          : 'bg-white border-slate-200 hover:border-blue-300 hover:shadow-xs'
+          ? 'ring-2 ring-blue-600 bg-blue-50/90 border-blue-400 shadow-sm'
+          : `${pastelStyles} shadow-2xs`
       }`}
     >
-      {/* Üst Satır: No & Rozetler */}
+      {/* Üst Satır: No & Ön Sıra Rozeti & Yorum Butonu & Kaldır */}
       <div className="flex items-center justify-between gap-1">
         <span
-          className={`text-[11px] font-bold ${
-            isFemale ? 'text-purple-700' : 'text-blue-700'
+          className={`text-[11px] font-bold px-1.5 py-0.2 rounded ${
+            isFemale ? 'bg-pink-100 text-pink-800' : 'bg-sky-100 text-sky-800'
           }`}
         >
           #{student.number}
@@ -443,13 +511,37 @@ const SeatSlot: React.FC<SeatSlotProps> = ({
             </span>
           )}
 
-          <button
-            onClick={onRemove}
-            title="Koltuktan Kaldır"
-            className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-red-600 rounded transition-opacity cursor-pointer"
-          >
-            <X className="w-3 h-3" />
-          </button>
+          {/* Ders İçi Yorum Butonu (Branş öğretmeni yorum yapamaz) */}
+          {!isBranch && onOpenComment && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenComment(student);
+              }}
+              title="Ders İçi Bireysel Yorum Ekle / Oku"
+              className={`p-0.5 rounded transition-colors cursor-pointer flex items-center gap-0.5 ${
+                commentCount > 0
+                  ? isFemale
+                    ? 'text-pink-700 bg-pink-100 font-bold px-1'
+                    : 'text-sky-700 bg-sky-100 font-bold px-1'
+                  : 'text-slate-400 hover:text-blue-900 opacity-60 group-hover:opacity-100'
+              }`}
+            >
+              <MessageSquare className="w-3 h-3" />
+              {commentCount > 0 && <span className="text-[9px]">{commentCount}</span>}
+            </button>
+          )}
+
+          {/* Koltuktan Kaldır Butonu (Sadece Sınıf Öğretmeninde) */}
+          {!isBranch && (
+            <button
+              onClick={onRemove}
+              title="Koltuktan Kaldır"
+              className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-red-600 rounded transition-opacity cursor-pointer"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -460,16 +552,16 @@ const SeatSlot: React.FC<SeatSlotProps> = ({
         </p>
       </div>
 
-      {/* Alt Satır: Cinsiyet & Seviye */}
-      <div className="flex items-center justify-between text-[10px] text-slate-500">
-        <span>{isFemale ? 'Kız' : 'Erkek'}</span>
-        <span className="font-medium text-slate-400">
-          {student.academicLevel === 'high'
-            ? 'İleri'
-            : student.academicLevel === 'medium'
-            ? 'Orta'
-            : 'Destek'}
+      {/* Alt Satır: Cinsiyet Göstergesi (Başarı düzeyi etiketi kaldırılmıştır) */}
+      <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5 border-t border-black/5">
+        <span className={`font-semibold ${isFemale ? 'text-pink-600' : 'text-sky-600'}`}>
+          {isFemale ? 'Kız Öğrenci' : 'Erkek Öğrenci'}
         </span>
+        {commentCount > 0 && (
+          <span className="text-[9px] text-slate-400 font-medium">
+            {commentCount} Not
+          </span>
+        )}
       </div>
     </div>
   );

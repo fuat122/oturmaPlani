@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Student, Gender, AcademicLevel } from '../types';
+import { Student, Gender, TeacherRole } from '../types';
 import {
   X,
   Search,
@@ -19,6 +19,7 @@ import {
 interface StudentObservationModalProps {
   students: Student[];
   classroomName: string;
+  userRole?: TeacherRole;
   onClose: () => void;
   onUpdateStudents: (updatedStudents: Student[]) => void;
   initialMode?: 'view' | 'add';
@@ -27,17 +28,19 @@ interface StudentObservationModalProps {
 export const StudentObservationModal: React.FC<StudentObservationModalProps> = ({
   students,
   classroomName,
+  userRole = 'advisory',
   onClose,
   onUpdateStudents,
   initialMode = 'view'
 }) => {
+  const isBranch = userRole === 'branch';
   const [searchTerm, setSearchTerm] = useState('');
   const [genderFilter, setGenderFilter] = useState<'all' | 'female' | 'male'>('all');
   const [needsFilter, setNeedsFilter] = useState<'all' | 'frontRow'>('all');
 
-  // Mode: view, add-single, add-bulk, edit
+  // Mode: list, single, bulk
   const [activeTab, setActiveTab] = useState<'list' | 'single' | 'bulk'>(
-    initialMode === 'add' ? 'single' : 'list'
+    !isBranch && initialMode === 'add' ? 'single' : 'list'
   );
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
 
@@ -47,7 +50,6 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
   );
   const [formName, setFormName] = useState('');
   const [formGender, setFormGender] = useState<Gender>('female');
-  const [formAcademicLevel, setFormAcademicLevel] = useState<AcademicLevel>('medium');
   const [formFrontRow, setFormFrontRow] = useState(false);
   const [formFrontRowNotes, setFormFrontRowNotes] = useState('');
   const [formAvoidIds, setFormAvoidIds] = useState<string[]>([]);
@@ -64,7 +66,6 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
     setFormNumber(String(100 + students.length + 1));
     setFormName('');
     setFormGender('female');
-    setFormAcademicLevel('medium');
     setFormFrontRow(false);
     setFormFrontRowNotes('');
     setFormAvoidIds([]);
@@ -73,16 +74,17 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
   };
 
   const openAddSingle = () => {
+    if (isBranch) return;
     resetSingleForm();
     setActiveTab('single');
   };
 
   const openEdit = (student: Student) => {
+    if (isBranch) return;
     setEditingStudent(student);
     setFormNumber(student.number);
     setFormName(student.name);
     setFormGender(student.gender);
-    setFormAcademicLevel(student.academicLevel);
     setFormFrontRow(student.specialNeeds.frontRowRequired);
     setFormFrontRowNotes(student.specialNeeds.notes || '');
     setFormAvoidIds([...student.avoidWithStudentIds]);
@@ -93,6 +95,7 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
 
   const handleSaveSingleForm = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isBranch) return;
     setFormError(null);
 
     const trimmedName = formName.trim();
@@ -122,7 +125,6 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
             number: trimmedNumber,
             name: trimmedName,
             gender: formGender,
-            academicLevel: formAcademicLevel,
             specialNeeds: {
               frontRowRequired: formFrontRow,
               notes: formFrontRowNotes.trim() || undefined
@@ -143,7 +145,6 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
         number: trimmedNumber,
         name: trimmedName,
         gender: formGender,
-        academicLevel: formAcademicLevel,
         specialNeeds: {
           frontRowRequired: formFrontRow,
           notes: formFrontRowNotes.trim() || undefined
@@ -157,9 +158,10 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
     }
   };
 
-  // Toplu Öğrenci Ekleme Çözümleyicisi (Excel / e-Okul formatı)
+  // Toplu Öğrenci Ekleme Çözümleyicisi (Okul No - Ad Soyad - Cinsiyet)
   const handleBulkAdd = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isBranch) return;
     setBulkError(null);
 
     if (!bulkText.trim()) {
@@ -172,12 +174,6 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
     let autoNumCounter = 100 + students.length + 1;
 
     for (const line of lines) {
-      // Tab, virgül veya ilk boşluğa göre ayır
-      // Desteklenen formatlar:
-      // "101 Ada Yılmaz"
-      // "102, Mehmet Demir, Erkek"
-      // "103	Cansu Kaya"
-      // "Ali Veli" (Numarasız gelirse otomatik ver)
       let num = '';
       let name = '';
       let gender: Gender = bulkDefaultGender;
@@ -187,8 +183,26 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
         if (parts.length >= 2 && /^\d+$/.test(parts[0])) {
           num = parts[0];
           name = parts[1];
+          if (parts[2]) {
+            const gLower = parts[2].toLowerCase();
+            if (gLower.includes('kız') || gLower === 'k' || gLower.includes('female')) gender = 'female';
+            if (gLower.includes('erkek') || gLower === 'e' || gLower.includes('male')) gender = 'male';
+          }
         } else {
           name = parts.join(' ');
+        }
+      } else if (line.includes('-')) {
+        const parts = line.split('-').map((p) => p.trim()).filter(Boolean);
+        if (parts.length >= 2 && /^\d+$/.test(parts[0])) {
+          num = parts[0];
+          name = parts[1];
+          if (parts[2]) {
+            const gLower = parts[2].toLowerCase();
+            if (gLower.includes('kız') || gLower === 'k') gender = 'female';
+            if (gLower.includes('erkek') || gLower === 'e') gender = 'male';
+          }
+        } else {
+          name = line;
         }
       } else if (line.includes(',')) {
         const parts = line.split(',').map((p) => p.trim()).filter(Boolean);
@@ -223,7 +237,6 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
           number: num,
           name,
           gender,
-          academicLevel: 'medium',
           specialNeeds: { frontRowRequired: false },
           avoidWithStudentIds: []
         });
@@ -241,6 +254,7 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
   };
 
   const handleDelete = (id: string, name: string) => {
+    if (isBranch) return;
     if (confirm(`"${name}" adlı öğrenciyi sınıftan silmek istediğinize emin misiniz? (Oturduğu sıra da boşaltılacaktır)`)) {
       const updated = students.filter((s) => s.id !== id);
       onUpdateStudents(updated);
@@ -276,9 +290,14 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                 <span className="text-xs bg-blue-100 text-blue-900 font-semibold px-2 py-0.5 rounded-full">
                   {students.length} Kayıtlı
                 </span>
+                {isBranch && (
+                  <span className="text-xs bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded-full">
+                    Salt Okunur
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500">
-                Tekli veya toplu öğrenci ekleme, gözlem notları ve pedagojik ihtiyaçlar
+                Öğrenci listesi, pedagojik ön sıra ihtiyaçları ve gözlem kayıtları
               </p>
             </div>
           </div>
@@ -290,7 +309,7 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
           </button>
         </div>
 
-        {/* Sekmeler (Tabs): Liste | Tekli Öğrenci Ekle | Toplu Ekle */}
+        {/* Sekmeler (Tabs): Sadece sınıf öğretmenine ekleme sekmeleri açık */}
         <div className="px-6 pt-3 border-b border-slate-200 bg-white flex items-center gap-2">
           <button
             onClick={() => {
@@ -307,39 +326,43 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
             Öğrenci Listesi ({students.length})
           </button>
 
-          <button
-            onClick={openAddSingle}
-            className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'single'
-                ? 'border-blue-900 text-blue-900'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <UserPlus className="w-4 h-4" />
-            {editingStudent ? `Düzenle: ${editingStudent.name}` : '+ Tekli Öğrenci Ekle'}
-          </button>
+          {!isBranch && (
+            <>
+              <button
+                onClick={openAddSingle}
+                className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === 'single'
+                    ? 'border-blue-900 text-blue-900'
+                    : 'border-transparent text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <UserPlus className="w-4 h-4" />
+                {editingStudent ? `Düzenle: ${editingStudent.name}` : '+ Tekli Öğrenci Ekle'}
+              </button>
 
-          <button
-            onClick={() => {
-              resetSingleForm();
-              setActiveTab('bulk');
-            }}
-            className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'bulk'
-                ? 'border-blue-900 text-blue-900'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <ClipboardList className="w-4 h-4" />
-            Toplu Öğrenci Ekle (Excel/Liste)
-          </button>
+              <button
+                onClick={() => {
+                  resetSingleForm();
+                  setActiveTab('bulk');
+                }}
+                className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === 'bulk'
+                    ? 'border-blue-900 text-blue-900'
+                    : 'border-transparent text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <ClipboardList className="w-4 h-4" />
+                Toplu Öğrenci Ekle (Okul No - Ad Soyad)
+              </button>
+            </>
+          )}
         </div>
 
         {/* Modal İçi Kaydırma Alanı: pb-28 eklenerek en alttaki öğrencilerin asla kesilmemesi sağlandı */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-28 bg-slate-50/50">
 
           {/* TAB 1: TEKLİ ÖĞRENCİ EKLEME VE DÜZENLEME FORMU */}
-          {activeTab === 'single' && (
+          {!isBranch && activeTab === 'single' && (
             <div className="max-w-2xl mx-auto bg-white rounded-2xl p-6 border border-slate-200 shadow-xs animate-in fade-in duration-150">
               <div className="mb-4 pb-3 border-b border-slate-100 flex items-center justify-between">
                 <div>
@@ -348,7 +371,7 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                     {editingStudent ? 'Öğrenci Bilgilerini Güncelle' : 'Yeni Öğrenci Kaydı'}
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Öğrenci adı ve numarası zorunludur.
+                    Öğrenci adı, okul numarası ve cinsiyet bilgisi.
                   </p>
                 </div>
                 {editingStudent && (
@@ -357,7 +380,7 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                       resetSingleForm();
                       setActiveTab('list');
                     }}
-                    className="text-xs text-slate-500 hover:text-slate-700"
+                    className="text-xs text-slate-500 hover:text-slate-700 cursor-pointer"
                   >
                     Vazgeç
                   </button>
@@ -404,68 +427,48 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Cinsiyet
+                      Cinsiyet *
                     </label>
                     <select
                       value={formGender}
                       onChange={(e) => setFormGender(e.target.value as Gender)}
                       className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-600 bg-white focus:outline-hidden"
                     >
-                      <option value="female">Kız Öğrenci</option>
-                      <option value="male">Erkek Öğrenci</option>
+                      <option value="female">Kız Öğrenci (Pembe Sıra)</option>
+                      <option value="male">Erkek Öğrenci (Mavi Sıra)</option>
                     </select>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Akademik Başarı / Katılım Seviyesi
-                    </label>
-                    <select
-                      value={formAcademicLevel}
-                      onChange={(e) => setFormAcademicLevel(e.target.value as AcademicLevel)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-600 bg-white focus:outline-hidden"
-                    >
-                      <option value="high">İleri Düzey (Yüksek Katılım)</option>
-                      <option value="medium">Orta Düzey (Standart)</option>
-                      <option value="developing">Desteklenmeli (Akran Desteği Önerilir)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Özel Ön Sıra Gereksinimi
-                    </label>
-                    <div className="flex items-center gap-2 mt-2">
-                      <input
-                        type="checkbox"
-                        id="formFrontRow"
-                        checked={formFrontRow}
-                        onChange={(e) => setFormFrontRow(e.target.checked)}
-                        className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
-                      />
-                      <label htmlFor="formFrontRow" className="text-xs text-slate-700 font-medium cursor-pointer">
-                        Ön Sırada Oturmalı (Görme/İşitme/Dikkat)
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                {formFrontRow && (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Ön Sıra Gereksinim Nedeni / Açıklama
-                    </label>
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Özel Ön Sıra Gereksinimi
+                  </label>
+                  <div className="flex items-center gap-2">
                     <input
-                      type="text"
-                      value={formFrontRowNotes}
-                      onChange={(e) => setFormFrontRowNotes(e.target.value)}
-                      placeholder="Örn: Miyop gözlük / Tahtayı önden daha net takip ediyor"
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-600 focus:outline-hidden"
+                      type="checkbox"
+                      id="formFrontRow"
+                      checked={formFrontRow}
+                      onChange={(e) => setFormFrontRow(e.target.checked)}
+                      className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
                     />
+                    <label htmlFor="formFrontRow" className="text-xs text-slate-700 font-medium cursor-pointer">
+                      Ön Sırada Oturmalı (Görme / İşitme / Dikkat Gereksinimi)
+                    </label>
                   </div>
-                )}
+
+                  {formFrontRow && (
+                    <div className="mt-2.5">
+                      <input
+                        type="text"
+                        value={formFrontRowNotes}
+                        onChange={(e) => setFormFrontRowNotes(e.target.value)}
+                        placeholder="Örn: Tahtayı önden daha net takip ediyor / Gözlük kullanıyor"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-blue-600 focus:outline-hidden"
+                      />
+                    </div>
+                  )}
+                </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -506,13 +509,13 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Öğretmen Gözlem ve Rehberlik Notu (Opsiyonel)
+                    Öğretmen Rehberlik & Gözlem Notu (Opsiyonel)
                   </label>
                   <textarea
                     rows={2}
                     value={formObservationNotes}
                     onChange={(e) => setFormObservationNotes(e.target.value)}
-                    placeholder="Ders içi davranış, sosyal uyum ve çalışma disiplinine dair notlar..."
+                    placeholder="Öğrencinin sınıf içi uyumu ve rehberlik takibine dair özel notlar..."
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-600 focus:outline-hidden"
                   />
                 </div>
@@ -538,7 +541,7 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
           )}
 
           {/* TAB 2: TOPLU ÖĞRENCİ EKLEME (BULK ADD) */}
-          {activeTab === 'bulk' && (
+          {!isBranch && activeTab === 'bulk' && (
             <div className="max-w-2xl mx-auto bg-white rounded-2xl p-6 border border-slate-200 shadow-xs animate-in fade-in duration-150">
               <div className="mb-4 pb-3 border-b border-slate-100">
                 <h3 className="text-sm font-bold text-blue-950 flex items-center gap-2">
@@ -546,7 +549,7 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                   Toplu Öğrenci Listesi Yapıştır
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  Excel, e-Okul veya metin belgenizdeki öğrenci listesini doğrudan kopyalayıp buraya yapıştırabilirsiniz.
+                  Excel veya e-Okul formatında listeyi doğrudan yapıştırabilirsiniz. Format: <code>Okul No - Ad Soyad</code> veya <code>Okul No Ad Soyad</code>.
                 </p>
               </div>
 
@@ -564,7 +567,7 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                       Öğrenci Listesi (Her satıra bir öğrenci)
                     </label>
                     <span className="text-[11px] text-slate-400">
-                      Örnek: 101 Ada Yılmaz veya sadece Ada Yılmaz
+                      Örnek: 101 - Ada Yılmaz
                     </span>
                   </div>
                   <textarea
@@ -572,7 +575,7 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                     required
                     value={bulkText}
                     onChange={(e) => setBulkText(e.target.value)}
-                    placeholder={"101 Ada Yılmaz\n102 Batuhan Kaya\n103 Ceren Demir\n104 Deniz Şahin"}
+                    placeholder={"101 - Ada Yılmaz - Kız\n102 - Batuhan Kaya - Erkek\n103 - Ceren Demir - Kız\n104 - Deniz Şahin - Erkek"}
                     className="w-full px-3.5 py-2.5 font-mono text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-600 focus:outline-hidden"
                   />
                 </div>
@@ -588,9 +591,9 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                         name="defaultGender"
                         checked={bulkDefaultGender === 'female'}
                         onChange={() => setBulkDefaultGender('female')}
-                        className="text-purple-600"
+                        className="text-pink-600"
                       />
-                      Kız
+                      Kız Öğrenci
                     </label>
                     <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer ml-3">
                       <input
@@ -598,9 +601,9 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                         name="defaultGender"
                         checked={bulkDefaultGender === 'male'}
                         onChange={() => setBulkDefaultGender('male')}
-                        className="text-blue-600"
+                        className="text-sky-600"
                       />
-                      Erkek
+                      Erkek Öğrenci
                     </label>
                   </div>
                 </div>
@@ -654,7 +657,7 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                     <button
                       onClick={() => setGenderFilter('female')}
                       className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-                        genderFilter === 'female' ? 'bg-white text-purple-700 shadow-xs' : 'text-slate-600'
+                        genderFilter === 'female' ? 'bg-white text-pink-700 shadow-xs' : 'text-slate-600'
                       }`}
                     >
                       Kız
@@ -662,7 +665,7 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                     <button
                       onClick={() => setGenderFilter('male')}
                       className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-                        genderFilter === 'male' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'
+                        genderFilter === 'male' ? 'bg-white text-sky-700 shadow-xs' : 'text-slate-600'
                       }`}
                     >
                       Erkek
@@ -681,13 +684,15 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                     <span>Ön Sıra</span>
                   </button>
 
-                  <button
-                    onClick={openAddSingle}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-blue-900 hover:bg-blue-800 rounded-lg transition-colors cursor-pointer shadow-xs"
-                  >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    Öğrenci Ekle
-                  </button>
+                  {!isBranch && (
+                    <button
+                      onClick={openAddSingle}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-blue-900 hover:bg-blue-800 rounded-lg transition-colors cursor-pointer shadow-xs"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      Öğrenci Ekle
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -705,7 +710,7 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                       ? 'Yukarıdaki "+ Tekli Öğrenci Ekle" veya "Toplu Ekle" butonlarını kullanarak hemen öğrenci ekleyebilirsiniz.'
                       : 'Farklı bir arama terimi deneyebilir veya filtreleri temizleyebilirsiniz.'}
                   </p>
-                  {students.length === 0 && (
+                  {!isBranch && students.length === 0 && (
                     <div className="mt-4 flex items-center justify-center gap-2">
                       <button
                         onClick={openAddSingle}
@@ -728,6 +733,8 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                     .map((id) => students.find((s) => s.id === id)?.name)
                     .filter(Boolean);
 
+                  const isFemale = student.gender === 'female';
+
                   return (
                     <div
                       key={student.id}
@@ -737,9 +744,9 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                         <div className="flex items-center gap-3">
                           <div
                             className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
-                              student.gender === 'female'
-                                ? 'bg-purple-100 text-purple-800'
-                                : 'bg-blue-100 text-blue-800'
+                              isFemale
+                                ? 'bg-pink-100 text-pink-800'
+                                : 'bg-sky-100 text-sky-800'
                             }`}
                           >
                             #{student.number}
@@ -749,30 +756,28 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                             <div className="flex items-center gap-2">
                               <h4 className="text-sm font-bold text-slate-900">{student.name}</h4>
                               <span
-                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                                  student.gender === 'female'
-                                    ? 'bg-purple-50 text-purple-700'
-                                    : 'bg-blue-50 text-blue-700'
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                                  isFemale
+                                    ? 'bg-pink-50 text-pink-700 border border-pink-200'
+                                    : 'bg-sky-50 text-sky-700 border border-sky-200'
                                 }`}
                               >
-                                {student.gender === 'female' ? 'Kız' : 'Erkek'}
+                                {isFemale ? 'Kız Öğrenci' : 'Erkek Öğrenci'}
                               </span>
                             </div>
 
                             <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
-                              <span>
-                                {student.academicLevel === 'high'
-                                  ? 'İleri Seviye'
-                                  : student.academicLevel === 'medium'
-                                  ? 'Orta Seviye'
-                                  : 'Desteklenmeli'}
-                              </span>
                               {student.specialNeeds.frontRowRequired && (
+                                <span className="text-amber-700 font-semibold flex items-center gap-1">
+                                  <Eye className="w-3 h-3" />
+                                  Ön Sıra Önceliği
+                                </span>
+                              )}
+                              {student.observations && student.observations.length > 0 && (
                                 <>
-                                  <span aria-hidden="true">·</span>
-                                  <span className="text-amber-700 font-semibold flex items-center gap-1">
-                                    <Eye className="w-3 h-3" />
-                                    Ön Sıra Önceliği
+                                  {student.specialNeeds.frontRowRequired && <span aria-hidden="true">·</span>}
+                                  <span className="text-blue-700 font-medium">
+                                    {student.observations.length} Ders İçi Not
                                   </span>
                                 </>
                               )}
@@ -780,30 +785,33 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                           </div>
                         </div>
 
-                        {/* Düzenle / Sil Aksiyon Butonları */}
-                        <div className="flex items-center gap-1 self-end sm:self-center">
-                          <button
-                            onClick={() => openEdit(student)}
-                            className="p-1.5 text-slate-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold"
-                            title="Düzenle"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                            <span>Düzenle</span>
-                          </button>
-                          <button
-                            onClick={() => handleDelete(student.id, student.name)}
-                            className="p-1.5 text-slate-400 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold"
-                            title="Sil"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Sil</span>
-                          </button>
-                        </div>
+                        {/* Düzenle / Sil Aksiyon Butonları (Yalnızca Sınıf Öğretmeninde) */}
+                        {!isBranch && (
+                          <div className="flex items-center gap-1 self-end sm:self-center">
+                            <button
+                              onClick={() => openEdit(student)}
+                              className="p-1.5 text-slate-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                              title="Düzenle"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                              <span>Düzenle</span>
+                            </button>
+                            <button
+                              onClick={() => handleDelete(student.id, student.name)}
+                              className="p-1.5 text-slate-400 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                              title="Sil"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Sil</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {(student.specialNeeds.notes ||
                         avoidNames.length > 0 ||
-                        student.observationNotes) && (
+                        student.observationNotes ||
+                        (student.observations && student.observations.length > 0)) && (
                         <div className="mt-3 pt-3 border-t border-slate-100 space-y-1.5 text-xs">
                           {student.specialNeeds.notes && (
                             <div className="text-amber-800 bg-amber-50/70 p-2 rounded-lg border border-amber-100 flex items-start gap-1.5">
@@ -827,8 +835,27 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                             <div className="text-slate-600 bg-slate-50 p-2 rounded-lg flex items-start gap-1.5">
                               <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                               <span>
-                                <strong>Gözlem Notu:</strong> {student.observationNotes}
+                                <strong>Rehberlik Notu:</strong> {student.observationNotes}
                               </span>
+                            </div>
+                          )}
+
+                          {student.observations && student.observations.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
+                                <BookOpen className="w-3 h-3 text-blue-700" />
+                                Ders İçi Yorumlar ({student.observations.length}):
+                              </span>
+                              <div className="space-y-1 max-h-28 overflow-y-auto">
+                                {[...student.observations].reverse().map((obs) => (
+                                  <div key={obs.id} className="text-xs bg-blue-50/50 border border-blue-100 p-2 rounded-lg text-slate-800">
+                                    <div className="flex items-center justify-between text-[10px] text-slate-500 mb-0.5">
+                                      <span>{new Date(obs.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })} · {obs.teacherName || 'Öğretmen'}</span>
+                                    </div>
+                                    <p className="font-medium text-[11px]">{obs.note}</p>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>

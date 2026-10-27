@@ -1,17 +1,22 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { School, ShieldAlert, Sparkles, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ShieldAlert, Sparkles, CheckCircle2 } from 'lucide-react';
 
 export const LoginView: React.FC = () => {
   const { signInWithGoogle, signInAsTestTeacher, loading, authError, clearError } = useAuth();
+  const logoUrl = `${import.meta.env.BASE_URL}assets/aistudio/alkev-logo-tr-2025_552f0d5d.png`;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 py-12">
       <div className="max-w-md w-full">
         {/* Logo and Brand Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-900 text-white shadow-md mb-4 ring-4 ring-blue-50">
-            <School className="w-9 h-9 text-amber-400" />
+          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-white shadow-xs mb-4 border border-slate-200">
+            <img
+              src={logoUrl}
+              alt="ALKEV Özel Okulları"
+              className="h-16 w-auto object-contain"
+            />
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-blue-950 tracking-tight">
             ALKEV Özel Okulları
@@ -48,9 +53,9 @@ export const LoginView: React.FC = () => {
               </div>
               <button
                 onClick={clearError}
-                className="mt-3 text-xs font-semibold text-red-700 hover:text-red-900 underline block text-right w-full"
+                className="mt-3 text-xs font-semibold text-red-700 hover:text-red-900 underline block text-right w-full cursor-pointer"
               >
-                Uyanıyı Kapat
+                Uyarıyı Kapat
               </button>
             </div>
           )}

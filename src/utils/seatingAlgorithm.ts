@@ -6,7 +6,6 @@ export interface SeatingResult {
   metrics: {
     frontRowSuccessRate: number; // Yüzde (%)
     genderBalanceScore: number; // Yüzde (%)
-    academicBalanceScore: number; // Yüzde (%)
     conflictCount: number; // Sıfır olmalı
     totalSeated: number;
     totalSeats: number;
@@ -14,11 +13,12 @@ export interface SeatingResult {
 }
 
 /**
- * Akıllı Sınıf Oturma Algoritması:
+ * Akıllı Sınıf Oturma Algoritması (ALKEV Pedagojik Denge Motoru):
  * - Kural 1: Ön sıra gereksinimi (Görme, işitme, dikkat) olan öğrenciler öncelikle 1. sıraya yerleştirilir.
- * - Kural 2: Birbirleriyle oturmaması gereken öğrenciler (avoidWithStudentIds) aynı sıraya veya hemen komşu sıraya konmaz.
- * - Kural 3: Sıra arkadaşı cinsiyet ve akademik seviye çeşitliliği gözetilerek eşleştirilir.
+ * - Kural 2: Birbirleriyle oturmaması gereken öğrenciler (avoidWithStudentIds) asla aynı sıraya konmaz.
+ * - Kural 3: Sıra arkadaşı cinsiyet çeşitliliği gözetilerek eşleştirilir (Kız-Erkek dengesi).
  * - Kural 4: Monte Carlo / Skorlama ile en dengeli düzeni seçer.
+ * Not: Başarı düzeyi etiketlemesi kaldırılmıştır, tüm öğrencilere eşit pedagojik yaklaşım esastır.
  */
 export const runSmartSeating = (
   students: Student[],
@@ -31,7 +31,6 @@ export const runSmartSeating = (
       metrics: {
         frontRowSuccessRate: 100,
         genderBalanceScore: 100,
-        academicBalanceScore: 100,
         conflictCount: 0,
         totalSeated: 0,
         totalSeats: baseDesks.length * 2
@@ -54,7 +53,6 @@ export const runSmartSeating = (
   let bestMetrics = {
     frontRowSuccessRate: 100,
     genderBalanceScore: 100,
-    academicBalanceScore: 100,
     conflictCount: 0,
     totalSeated: 0,
     totalSeats
@@ -70,17 +68,13 @@ export const runSmartSeating = (
       rightStudentId: null
     }));
 
-    // Öğrencileri kategorize edelim
+    // Öğrencileri kategorize edelim (Ön sıra gereksinimi olanlar öncelikli)
     const frontRowReqStudents = students.filter(s => s.specialNeeds.frontRowRequired);
     const standardStudents = students.filter(s => !s.specialNeeds.frontRowRequired);
 
     // Rastgele karıştır (shuffle)
     const shuffledFront = [...frontRowReqStudents].sort(() => Math.random() - 0.5);
     const shuffledStandard = [...standardStudents].sort(() => Math.random() - 0.5);
-
-    // 1. Adım: Ön sıra öğrencilerini 1. sıra sıralarına yerleştir
-    const row1Desks = trialDesks.filter(d => d.row === 1);
-    const otherDesks = trialDesks.filter(d => d.row > 1);
 
     const remainingToSeat = [...shuffledFront, ...shuffledStandard];
 
@@ -103,7 +97,7 @@ export const runSmartSeating = (
       if (remainingToSeat.length === 0) break;
 
       // Sağ koltuk için öğrenci seç:
-      // leftStudent ile çatışmayan, cinsiyet/akademik denge kuracak en iyi adayı bul
+      // leftStudent ile çatışmayan, cinsiyet dengesi kuracak en iyi adayı bul
       let bestPartnerIdx = 0;
       let highestPartnerScore = -999;
 
@@ -111,7 +105,7 @@ export const runSmartSeating = (
         const candidate = remainingToSeat[i];
         let pScore = 0;
 
-        // Çatışma kontrolü
+        // Çatışma kontrolü (Kesinlikle yan yana oturmamalı)
         const hasConflict =
           leftStudent.avoidWithStudentIds.includes(candidate.id) ||
           candidate.avoidWithStudentIds.includes(leftStudent.id);
@@ -128,16 +122,7 @@ export const runSmartSeating = (
 
         // Cinsiyet dengesi: Kız-Erkek eşleşmesi
         if (candidate.gender !== leftStudent.gender) {
-          pScore += 25;
-        }
-
-        // Akademik denge: Geliştirilmeli olan öğrenciyi İleri veya Orta ile eşleştirmek
-        if (leftStudent.academicLevel === 'developing' && candidate.academicLevel !== 'developing') {
-          pScore += 30;
-        } else if (leftStudent.academicLevel !== 'developing' && candidate.academicLevel === 'developing') {
-          pScore += 30;
-        } else if (leftStudent.academicLevel === 'high' && candidate.academicLevel === 'medium') {
-          pScore += 15;
+          pScore += 40;
         }
 
         if (pScore > highestPartnerScore) {
@@ -156,7 +141,6 @@ export const runSmartSeating = (
     let frontRowMet = 0;
     let totalFrontReq = frontRowReqStudents.length;
     let genderBalancedPairs = 0;
-    let academicBalancedPairs = 0;
     let filledPairs = 0;
     let totalSeated = 0;
 
@@ -188,25 +172,13 @@ export const runSmartSeating = (
         // Cinsiyet dengesi
         if (left.gender !== right.gender) {
           genderBalancedPairs++;
-          iterationScore += 40;
-        }
-
-        // Akademik denge
-        if (
-          (left.academicLevel === 'developing' && right.academicLevel !== 'developing') ||
-          (right.academicLevel === 'developing' && left.academicLevel !== 'developing')
-        ) {
-          academicBalancedPairs++;
           iterationScore += 50;
-        } else if (left.academicLevel !== right.academicLevel) {
-          academicBalancedPairs++;
-          iterationScore += 25;
         }
       }
     }
 
     const frontRowRate = totalFrontReq > 0 ? (frontRowMet / totalFrontReq) * 100 : 100;
-    iterationScore += frontRowRate * 15;
+    iterationScore += frontRowRate * 20;
 
     if (iterationScore > bestScore || bestDesks.length === 0) {
       bestScore = iterationScore;
@@ -214,7 +186,6 @@ export const runSmartSeating = (
       bestMetrics = {
         frontRowSuccessRate: Math.round(frontRowRate),
         genderBalanceScore: filledPairs > 0 ? Math.round((genderBalancedPairs / filledPairs) * 100) : 100,
-        academicBalanceScore: filledPairs > 0 ? Math.round((academicBalancedPairs / filledPairs) * 100) : 100,
         conflictCount: conflicts,
         totalSeated,
         totalSeats

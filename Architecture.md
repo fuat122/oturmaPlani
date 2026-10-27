@@ -1,6 +1,6 @@
 # Architecture.md - Sistem ve Teknik Mimari
 
-Bu doküman, Smart Classroom Seating (`oturmaPlani`) uygulamasının bileşen hiyerarşisini, veri akışını, güvenlik katmanını ve dışa aktarma mekanizmasını açıklar.
+Bu doküman, Smart Classroom Seating (`oturmaPlani`) uygulamasının bileşen hiyerarşisini, veri akışını, güvenlik katmanını, rol tabanlı erişim kontrolünü ve dışa aktarma mekanizmasını açıklar.
 
 ---
 
@@ -9,18 +9,19 @@ Bu doküman, Smart Classroom Seating (`oturmaPlani`) uygulamasının bileşen hi
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        App Navigation & Top Bar                        │
-│  [ALKEV Brand] ── [Sınıf Seçici: 9-A, 10-B...] ── [Kullanıcı & Çıkış]  │
+│  [ALKEV Logo] ── [Sınıf Seçici] ── [Rol: Danışman / Branş] ── [Profil] │
 └────────────────────────────────────┬───────────────────────────────────┘
                                      │
            ┌─────────────────────────┴─────────────────────────┐
            ▼                                                   ▼
 ┌──────────────────────────────────────┐  ┌───────────────────────────────────┐
 │         ClassroomToolbar             │  │     StudentObservationModal       │
-│  - Akıllı Yerleştir (Auto-Seat)      │  │  - Öğrenci Ekle / Düzenle         │
-│  - PDF İndir (A4 Yatay)              │  │  - Görme/İşitme Gereksinimleri    │
-│  - Sıraları Temizle / Sıfırla        │  │  - Birlikte Oturmayanlar Listesi  │
-│  - Anlık Pedagojik Denge Metrikleri  │  │  - Esnek pb-28 Kaydırma Alanı     │
-└──────────────────┬───────────────────┘  └─────────────────┬─────────────────┘
+│  - Akıllı Yerleştir (Auto-Seat)      │  │  - Öğrenci Ekle / Düzenle / Sil   │
+│  - PDF İndir (Yalnızca Danışman)     │  │  - Cinsiyet & Ön Sıra İhtiyaçları │
+│  - Yorum Raporu Al (Filtreli/Yazdır) │  │  - Birlikte Oturmayanlar Listesi  │
+│  - Sınıf Genel Notu                  │  │  - Esnek pb-28 Kaydırma Alanı     │
+│  - Canlı Dağılım Metrikleri          │  └─────────────────┬─────────────────┘
+└──────────────────┬───────────────────┘                    │
                    │                                        │
                    ▼                                        ▼
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -32,21 +33,37 @@ Bu doküman, Smart Classroom Seating (`oturmaPlani`) uygulamasının bileşen hi
 │  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐                │
 │  │ 2. Sıra Sol  │   │ 2. Sıra Orta │   │ 2. Sıra Sağ  │                │
 │  └──────────────┘   └──────────────┘   └──────────────┘                │
-│  [Yerleşmemiş Öğrenci Havuzu / Drawer]                                │
+│  [Kız: Açık Pastel Pembe] [Erkek: Açık Pastel Mavi]                    │
+│  [Branş Modunda: Salt Okunur Kilit - Yorum/Koltuk Takası Kapalı]       │
 └────────────────────────────────────┬───────────────────────────────────┘
                                      │
                                      ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│             Off-Screen High-Fidelity A4 Landscape PDF Engine           │
-│  - left: -9999px; width: 1200px; inline HEX renkler                    │
-│  - html2canvas (scale: 2) -> jsPDF (landscape) -> pdf.save()           │
-│  - finally: DOM temizliği (removeChild)                                │
+│             Isolated Sandbox IFrame A4 Landscape PDF Engine            │
+│  - Tailwind v4 oklch() çökmesini önleyen izole <iframe> sandbox         │
+│  - 1200px sabit genişlik, saf inline HEX renkler (#FDF2F8 / #EFF6FF)   │
+│  - html2canvas (scale: 2) -> jsPDF (A4 landscape)                      │
+│  - finally: iframe.remove() garantili temizlik                         │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### 2. Güvenlik ve Kimlik Doğrulama Katmanı
+### 2. Rol Tabanlı Yetkilendirme (RBAC)
+- **Sınıf Rehber Öğretmeni (`advisory`):**
+  - Sınıfın asil yöneticisidir.
+  - Sıra takası (click-to-swap), yeni öğrenci ekleme, çıkarma ve düzenleme yapabilir.
+  - Ders esnasında öğrencilere bireysel yorum ve sınıfa genel ders notu ekleyebilir.
+  - Sınıfın A4 Yatay oturma planı PDF çıktısını indirebilir.
+- **Branş Öğretmeni (`branch`):**
+  - Sınıfa derse giren branş öğretmenleri içindir.
+  - Yalnızca sınıfın oturma düzenini ve öğrenci listesini görüntüleyebilir.
+  - Sıra değişikliği yapamaz, yorum ekleyemez ve PDF indiremez.
+  - Arayüzde açıkça "Branş Öğretmeni Modu (Salt Okunur)" rozeti görüntülenir.
+
+---
+
+### 3. Güvenlik ve Kimlik Doğrulama Katmanı
 - **Proje:** `oturma-plani-4448d`
 - **Domain Kısıtı:** `@alkev.k12.tr`
 - **Tetikleyiciler:**
@@ -56,30 +73,29 @@ Bu doküman, Smart Classroom Seating (`oturmaPlani`) uygulamasının bileşen hi
 
 ---
 
-### 2.1. Veri Kalıcılığı ve Firebase Firestore Senkronizasyonu (`classroomService.ts`)
+### 4. Veri Kalıcılığı ve Firebase Firestore Senkronizasyonu (`classroomService.ts`)
 - **İki Katmanlı Hibrit Saklama:** Tüm sınıf ve öğrenci güncellemeleri hem `localStorage`'a anında yazılır hem de Firebase Firestore `classrooms` koleksiyonuna `setDoc` ile asenkron kaydedilir.
-- **Tekli ve Toplu Öğrenci Ekleme:** Öğrenci eklendiği anda local state ve veritabanı senkronize edilir, grid derhal re-render edilerek yeni öğrenciyi gösterir.
+- **Öğrenci Yorumları ve Sınıf Günlüğü:** Bireysel öğrenci ders yorumları (`observations`) ve sınıf genel notları (`classroomLogs`) doğrudan öğrenci ve sınıf belgeleri içinde kalıcı olarak saklanır.
 - **Silme Temizliği:** Bir öğrenci silindiğinde oturduğu sıra da otomatik olarak boşaltılarak veri bütünlüğü korunur.
 
 ---
 
-### 3. Akıllı Oturma Algoritması (`seatingAlgorithm.ts`)
+### 5. Akıllı Oturma Algoritması (`seatingAlgorithm.ts`)
 1. **Öncelik 1 (Ön Sıra Kuralı):** `specialNeeds.frontRowRequired === true` olan öğrenciler doğrudan 1. sıradaki masalara önceliklendirilir.
 2. **Öncelik 2 (Ayrılma / Çatışma Kuralı):** `avoidWithStudentIds` listesinde birbirini içeren öğrenciler asla aynı sırada yan yana veya doğrudan komşu koltukta oturamaz.
-3. **Öncelik 3 (Cinsiyet & Seviye Dengesi):** Çiftli sıralarda kız-erkek dağılımı ile akademik destek ihtiyacı olan öğrencilerin yanına rehberlik edebilecek akran yerleştirilir.
-4. **Skorlama & Simülasyon:** 40 iterasyonluk Monte Carlo aramasında en yüksek pedagojik denge puanına sahip düzen seçilir.
+3. **Öncelik 3 (Cinsiyet Dengesi):** Çiftli sıralarda kız-erkek uyumu gözetilerek pedagojik sınıf atmosferi dengelenir.
+4. **Başarı Düzeyi:** Öğrencilerin başarı düzeylerine göre etiketlenmesi pedagojik prensip gereği kaldırılmıştır.
+5. **Skorlama & Simülasyon:** 40 iterasyonluk Monte Carlo aramasında en yüksek pedagojik denge puanına sahip düzen seçilir.
 
 ---
 
-### 4. PDF Motoru ve Ekran Dışı Render (`pdfExport.ts`)
-- Ekran çözünürlüğünden, mobil tarayıcı zoom oranından veya responsive DOM taşmalarından etkilenmemek amacıyla `left: -9999px` konumunda 1200px genişlikte sanal bir A4 şablon oluşturulur.
-- Başlık standardı: `[Danışman Öğretmen] Danışmanlığında [Sınıf Adı] Sınıfı`.
-- Renkler standart HEX (`#1E3A8A`, `#0F172A`, `#FFFFFF`) olarak doğrudan inline atanır.
-- İşlem bittiğinde `finally` bloğu DOM'u temizler.
+### 6. OKLCH Hatasını Önleyen İzole IFrame PDF Motoru (`pdfExport.ts`)
+- **Sorun Analizi:** Tailwind v4, global DOM'a `oklch()` formatında CSS değişkenleri enjekte eder. `html2canvas` bu renkleri ayrıştıramadığı için `Attempting to parse an unsupported color function "oklch"` hatası vererek çöker.
+- **Mimari Çözüm:** PDF üretimi için gizli bir `<iframe>` (`display: none` veya `left: -9999px`) açılır. Iframe'in içi sıfırdan oluşturulan bağımsız bir HTML dokümanı ile doldurulur. Bu dokümanda hiçbir harici CSS veya Tailwind v4 değişkeni bulunmaz; tamamen inline HEX renkler (`#FFFFFF`, `#FDF2F8`, `#EFF6FF`, `#1E3A8A`) kullanılır. `html2canvas` iframe içerisindeki gövdeyi hatasız ve 2x retina netliğinde render eder, `jsPDF` ile A4 Yatay olarak kaydeder ve `finally` bloğunda iframe DOM'dan silinir.
 
 ---
 
-### 5. Dağıtım ve Yayınlama (Deployment)
+### 7. Dağıtım ve Yayınlama (Deployment)
 - **Depo (Repository):** `oturmaPlani`
 - **GitHub Pages Base Yolu:** `base: '/oturmaPlani/'` (`vite.config.js` ve `vite.config.ts`)
 - **Scriptler:**
