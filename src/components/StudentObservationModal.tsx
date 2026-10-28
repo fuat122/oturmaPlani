@@ -175,67 +175,83 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
 
     for (const line of lines) {
       let num = '';
-      let name = '';
+      let rawName = '';
       let gender: Gender = bulkDefaultGender;
 
       if (line.includes('\t')) {
         const parts = line.split('\t').map((p) => p.trim()).filter(Boolean);
         if (parts.length >= 2 && /^\d+$/.test(parts[0])) {
           num = parts[0];
-          name = parts[1];
+          rawName = parts[1];
           if (parts[2]) {
             const gLower = parts[2].toLowerCase();
-            if (gLower.includes('kız') || gLower === 'k' || gLower.includes('female')) gender = 'female';
-            if (gLower.includes('erkek') || gLower === 'e' || gLower.includes('male')) gender = 'male';
+            if (['kız', 'kiz', 'k', 'female'].includes(gLower)) gender = 'female';
+            if (['erkek', 'e', 'male'].includes(gLower)) gender = 'male';
           }
         } else {
-          name = parts.join(' ');
+          rawName = parts.join(' ');
         }
       } else if (line.includes('-')) {
         const parts = line.split('-').map((p) => p.trim()).filter(Boolean);
-        if (parts.length >= 2 && /^\d+$/.test(parts[0])) {
+        if (parts.length >= 3 && /^\d+$/.test(parts[0])) {
           num = parts[0];
-          name = parts[1];
-          if (parts[2]) {
-            const gLower = parts[2].toLowerCase();
-            if (gLower.includes('kız') || gLower === 'k') gender = 'female';
-            if (gLower.includes('erkek') || gLower === 'e') gender = 'male';
-          }
+          rawName = parts[1];
+          const gLower = parts[2].toLowerCase();
+          if (['kız', 'kiz', 'k', 'female'].includes(gLower)) gender = 'female';
+          if (['erkek', 'e', 'male'].includes(gLower)) gender = 'male';
+        } else if (parts.length === 2 && /^\d+$/.test(parts[0])) {
+          num = parts[0];
+          rawName = parts[1];
         } else {
-          name = line;
+          rawName = parts.join(' ');
         }
       } else if (line.includes(',')) {
         const parts = line.split(',').map((p) => p.trim()).filter(Boolean);
         if (parts.length >= 2 && /^\d+$/.test(parts[0])) {
           num = parts[0];
-          name = parts[1];
+          rawName = parts[1];
           if (parts[2]) {
             const gLower = parts[2].toLowerCase();
-            if (gLower.includes('kız') || gLower === 'k' || gLower.includes('female')) gender = 'female';
-            if (gLower.includes('erkek') || gLower === 'e' || gLower.includes('male')) gender = 'male';
+            if (['kız', 'kiz', 'k', 'female'].includes(gLower)) gender = 'female';
+            if (['erkek', 'e', 'male'].includes(gLower)) gender = 'male';
           }
         } else {
-          name = parts[0];
+          rawName = parts[0];
         }
       } else {
         const match = line.match(/^(\d+)[\s.:-]+(.+)$/);
         if (match) {
           num = match[1];
-          name = match[2].trim();
+          rawName = match[2].trim();
         } else {
-          name = line;
+          rawName = line;
         }
       }
+
+      // İsim sonundaki Erkek/Kız kelimesini ayıkla
+      let cleanName = rawName.trim();
+      const tokens = cleanName.split(/[\s,–—-]+/).filter(Boolean);
+      if (tokens.length >= 2) {
+        const lastToken = tokens[tokens.length - 1].toLowerCase();
+        if (['erkek', 'e', 'male'].includes(lastToken)) {
+          gender = 'male';
+          cleanName = cleanName.replace(new RegExp(`[\\s,–—-]+${tokens[tokens.length - 1]}\\s*$`, 'i'), '').trim();
+        } else if (['kız', 'kiz', 'k', 'female'].includes(lastToken)) {
+          gender = 'female';
+          cleanName = cleanName.replace(new RegExp(`[\\s,–—-]+${tokens[tokens.length - 1]}\\s*$`, 'i'), '').trim();
+        }
+      }
+      cleanName = cleanName.replace(/[\s–—-]+(erkek|kız|kiz)$/i, '').trim();
 
       if (!num) {
         num = String(autoNumCounter++);
       }
 
-      if (name) {
+      if (cleanName) {
         parsedStudents.push({
           id: 's_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
           number: num,
-          name,
+          name: cleanName,
           gender,
           specialNeeds: { frontRowRequired: false },
           avoidWithStudentIds: []
@@ -434,8 +450,8 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                       onChange={(e) => setFormGender(e.target.value as Gender)}
                       className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-600 bg-white focus:outline-hidden"
                     >
-                      <option value="female">Kız Öğrenci (Pembe Sıra)</option>
-                      <option value="male">Erkek Öğrenci (Mavi Sıra)</option>
+                      <option value="female">Kız (Pembe Sıra)</option>
+                      <option value="male">Erkek (Mavi Sıra)</option>
                     </select>
                   </div>
                 </div>
@@ -593,7 +609,7 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                         onChange={() => setBulkDefaultGender('female')}
                         className="text-pink-600"
                       />
-                      Kız Öğrenci
+                      Kız
                     </label>
                     <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer ml-3">
                       <input
@@ -603,7 +619,7 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                         onChange={() => setBulkDefaultGender('male')}
                         className="text-sky-600"
                       />
-                      Erkek Öğrenci
+                      Erkek
                     </label>
                   </div>
                 </div>
@@ -762,7 +778,7 @@ export const StudentObservationModal: React.FC<StudentObservationModalProps> = (
                                     : 'bg-sky-50 text-sky-700 border border-sky-200'
                                 }`}
                               >
-                                {isFemale ? 'Kız Öğrenci' : 'Erkek Öğrenci'}
+                                {isFemale ? 'Kız' : 'Erkek'}
                               </span>
                             </div>
 

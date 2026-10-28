@@ -555,7 +555,7 @@ const SeatSlot: React.FC<SeatSlotProps> = ({
       {/* Alt Satır: Cinsiyet Göstergesi (Başarı düzeyi etiketi kaldırılmıştır) */}
       <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5 border-t border-black/5">
         <span className={`font-semibold ${isFemale ? 'text-pink-600' : 'text-sky-600'}`}>
-          {isFemale ? 'Kız Öğrenci' : 'Erkek Öğrenci'}
+          {isFemale ? 'Kız' : 'Erkek'}
         </span>
         {commentCount > 0 && (
           <span className="text-[9px] text-slate-400 font-medium">

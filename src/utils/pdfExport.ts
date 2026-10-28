@@ -70,12 +70,12 @@ export const exportClassroomSeatingPDF = async ({
       deskGrid[`${desk.row}-${desk.column}`] = desk;
     });
 
-    // İstatistikler
+    // İstatistikler: Sınıf genelindeki gerçek cinsiyet dağılımı
     let totalSeated = 0;
     let frontNeedsMet = 0;
     let frontNeedsTotal = 0;
-    let femaleCount = 0;
-    let maleCount = 0;
+    const femaleCount = classroom.students.filter((s) => s.gender === 'female').length;
+    const maleCount = classroom.students.filter((s) => s.gender === 'male').length;
 
     classroom.students.forEach((s) => {
       if (s.specialNeeds?.frontRowRequired) frontNeedsTotal++;
@@ -86,17 +86,28 @@ export const exportClassroomSeatingPDF = async ({
       const right = desk.rightStudentId ? studentMap.get(desk.rightStudentId) : null;
       if (left) {
         totalSeated++;
-        if (left.gender === 'female') femaleCount++;
-        else maleCount++;
         if (desk.row === 1 && left.specialNeeds?.frontRowRequired) frontNeedsMet++;
       }
       if (right) {
         totalSeated++;
-        if (right.gender === 'female') femaleCount++;
-        else maleCount++;
         if (desk.row === 1 && right.specialNeeds?.frontRowRequired) frontNeedsMet++;
       }
     });
+
+    // Sütun başlıkları yardımcısı
+    const getColumnTitle = (colIndex: number, totalCols: number): string => {
+      if (totalCols === 2) {
+        return colIndex === 1 ? 'Sol Blok' : 'Sağ Blok';
+      }
+      if (totalCols === 3) {
+        return colIndex === 1 ? 'Sol Blok' : colIndex === 2 ? 'Orta Blok' : 'Sağ Blok';
+      }
+      if (totalCols === 4) {
+        const titles = ['1. Blok (Sol)', '2. Blok (Orta-Sol)', '3. Blok (Orta-Sağ)', '4. Blok (Sağ)'];
+        return titles[colIndex - 1] || `${colIndex}. Blok`;
+      }
+      return `${colIndex}. Blok`;
+    };
 
     // İzole iframe oluşturarak Tailwind v4 'oklch' stillerinden %100 arındırıyoruz
     iframe = document.createElement('iframe');
@@ -104,8 +115,8 @@ export const exportClassroomSeatingPDF = async ({
     iframe.style.position = 'fixed';
     iframe.style.left = '-9999px';
     iframe.style.top = '0';
-    iframe.style.width = '1250px';
-    iframe.style.height = '950px';
+    iframe.style.width = '1180px';
+    iframe.style.height = '900px';
     iframe.style.border = '0';
     iframe.style.zIndex = '-9999';
     document.body.appendChild(iframe);
@@ -115,7 +126,7 @@ export const exportClassroomSeatingPDF = async ({
       throw new Error('İzole render alanı oluşturulamadı.');
     }
 
-    // HTML Şablonunu İnşa Et (Tamamı Saf HEX Renkler)
+    // HTML Şablonunu İnşa Et (Tamamı Saf HEX Renkler, 1120px Sabit Genişlikli A4 Yatay İskeleti)
     const htmlContent = `
       <!DOCTYPE html>
       <html lang="tr">
@@ -127,111 +138,113 @@ export const exportClassroomSeatingPDF = async ({
               font-family: Arial, Helvetica, sans-serif;
               background-color: #FFFFFF;
               color: #0F172A;
-              padding: 24px;
-              width: 1200px;
+              padding: 20px;
+              width: 1120px;
+              max-width: 100%;
+              box-sizing: border-box;
+              overflow: hidden;
             }
           </style>
         </head>
         <body>
-          <div style="border: 2px solid #1E3A8A; border-radius: 12px; padding: 24px; background-color: #FFFFFF;">
+          <div style="width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden; border: 2px solid #1E3A8A; border-radius: 12px; padding: 20px; background-color: #FFFFFF;">
             
             <!-- Kurumsal Üst Başlık & Logo -->
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 18px;">
-              <div style="display: flex; align-items: center; gap: 16px;">
-                <img src="${logoBase64}" alt="ALKEV Logo" style="height: 52px; width: auto; object-fit: contain;" />
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #E2E8F0; padding-bottom: 14px; margin-bottom: 16px; width: 100%; box-sizing: border-box;">
+              <div style="display: flex; align-items: center; gap: 14px;">
+                <img src="${logoBase64}" alt="ALKEV Logo" style="height: 48px; width: auto; object-fit: contain;" />
                 <div>
-                  <div style="color: #1E3A8A; font-size: 18px; font-weight: 800; letter-spacing: -0.5px;">ALKEV ÖZEL OKULLARI</div>
-                  <div style="color: #475569; font-size: 12px; font-weight: 600;">Akıllı Sınıf Oturma Düzeni Planı</div>
+                  <div style="color: #1E3A8A; font-size: 17px; font-weight: 800; letter-spacing: -0.5px;">ALKEV ÖZEL OKULLARI</div>
+                  <div style="color: #475569; font-size: 11.5px; font-weight: 600;">Akıllı Sınıf Oturma Düzeni Planı</div>
                 </div>
               </div>
               <div style="text-align: right;">
-                <div style="background-color: #EFF6FF; border: 1px solid #BFDBFE; color: #1E3A8A; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; display: inline-block;">
+                <div style="background-color: #EFF6FF; border: 1px solid #BFDBFE; color: #1E3A8A; padding: 3px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 700; display: inline-block;">
                   ${classroom.academicYear || '2025-2026'} Eğitim-Öğretim Yılı
                 </div>
-                <div style="color: #64748B; font-size: 11px; margin-top: 4px;">Rapor Tarihi: ${formattedDate}</div>
+                <div style="color: #64748B; font-size: 10.5px; margin-top: 3px;">Rapor Tarihi: ${formattedDate}</div>
               </div>
             </div>
 
             <!-- Başlık: [Danışman Öğretmen] Danışmanlığında [Sınıf Adı] Sınıfı -->
-            <div style="text-align: center; margin-bottom: 20px;">
-              <h1 style="color: #0F172A; font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">
+            <div style="text-align: center; margin-bottom: 16px; width: 100%;">
+              <h1 style="color: #0F172A; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">
                 ${classroom.advisoryTeacher || 'Danışman Öğretmen'} Danışmanlığında ${classroom.name || 'Sınıf'} Sınıfı
               </h1>
-              <p style="color: #475569; font-size: 12px; margin: 4px 0 0 0;">
+              <p style="color: #475569; font-size: 11.5px; margin: 3px 0 0 0;">
                 Oturma Planı ve Öğrenci Yerleşim Krokisi
               </p>
             </div>
 
             <!-- Akıllı Tahta & Öğretmen Kürsüsü Bölgesi -->
-            <div style="background-color: #0F172A; color: #FFFFFF; border-radius: 8px; padding: 9px 24px; text-align: center; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-              <div style="font-size: 11px; color: #94A3B8; text-transform: uppercase; font-weight: 700;">[ KAPI TARAFI ]</div>
-              <div style="font-size: 13px; font-weight: 700; letter-spacing: 1px;">
+            <div style="width: 100%; box-sizing: border-box; background-color: #0F172A; color: #FFFFFF; border-radius: 8px; padding: 8px 20px; text-align: center; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+              <div style="font-size: 10.5px; color: #94A3B8; text-transform: uppercase; font-weight: 700;">[ KAPI TARAFI ]</div>
+              <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px;">
                 ✦ ÖĞRETMEN KÜRSÜSÜ & AKILLI TAHTA (ÖN CEPHE) ✦
               </div>
-              <div style="font-size: 11px; color: #94A3B8; text-transform: uppercase; font-weight: 700;">[ PENCERE TARAFI ]</div>
+              <div style="font-size: 10.5px; color: #94A3B8; text-transform: uppercase; font-weight: 700;">[ PENCERE TARAFI ]</div>
             </div>
 
-            <!-- Sınıf Sıraları Grid'i -->
-            <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px;">
+            <!-- Sınıf Sıraları Grid'i (100% Bounded, Sağa Kesinlikle Taşmaz) -->
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; width: 100%; box-sizing: border-box; overflow: hidden;">
               ${Array.from({ length: rows })
                 .map((_, rIdx) => {
                   const rowNum = rIdx + 1;
                   return `
-                  <div style="display: flex; gap: 16px; align-items: stretch;">
-                    <div style="width: 70px; display: flex; align-items: center; justify-content: center; background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 12px; font-weight: 700; color: #334155;">
+                  <div style="display: flex; gap: 10px; align-items: stretch; width: 100%; box-sizing: border-box; overflow: hidden;">
+                    <!-- Satır Numarası Etiketi -->
+                    <div style="width: 58px; min-width: 58px; max-width: 58px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 11px; font-weight: 700; color: #334155; box-sizing: border-box;">
                       ${rowNum}. Sıra
                     </div>
-                    <div style="flex: 1; display: grid; grid-template-columns: repeat(${cols}, 1fr); gap: 16px;">
+
+                    <!-- Bloklar Grid'i (minmax(0, 1fr) ile eşit sütunlar, taşma yapmaz) -->
+                    <div style="flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(${cols}, minmax(0, 1fr)); gap: 10px; width: 100%; box-sizing: border-box; overflow: hidden;">
                       ${Array.from({ length: cols })
                         .map((_, cIdx) => {
                           const colNum = cIdx + 1;
                           const desk = deskGrid[`${rowNum}-${colNum}`];
                           const left = desk?.leftStudentId ? studentMap.get(desk.leftStudentId) : null;
                           const right = desk?.rightStudentId ? studentMap.get(desk.rightStudentId) : null;
-                          const colTitle = colNum === 1 ? 'Sol Blok' : colNum === 2 ? 'Orta Blok' : 'Sağ Blok';
+                          const colTitle = getColumnTitle(colNum, cols);
 
                           const renderStudentSeat = (student: Student | null | undefined) => {
                             if (!student) {
                               return `
-                                <div style="background-color: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 6px; padding: 8px 6px; min-height: 54px; display: flex; align-items: center; justify-content: center; color: #94A3B8; font-size: 11px; font-style: italic;">
+                                <div style="background-color: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 6px; padding: 6px 4px; min-height: 52px; height: 52px; display: flex; align-items: center; justify-content: center; color: #94A3B8; font-size: 11px; font-style: italic; box-sizing: border-box; min-width: 0; overflow: hidden;">
                                   Boş
                                 </div>
                               `;
                             }
 
                             const isFemale = student.gender === 'female';
-                            // Kız: Pastel Açık Pembe (#FDF2F8 / #FBCFE8)
-                            // Erkek: Pastel Açık Mavi (#EFF6FF / #BFDBFE)
+                            // Kız: Pastel Pembe (#FDF2F8 / #FBCFE8)
+                            // Erkek: Pastel Mavi (#EFF6FF / #BFDBFE)
                             const bgColor = isFemale ? '#FDF2F8' : '#EFF6FF';
                             const borderColor = isFemale ? '#FBCFE8' : '#BFDBFE';
-                            const badgeColor = isFemale ? '#BE185D' : '#1D4ED8';
 
                             return `
-                              <div style="background-color: ${bgColor}; border: 1.5px solid ${borderColor}; border-radius: 6px; padding: 7px 8px; min-height: 54px; display: flex; flex-direction: column; justify-content: center;">
-                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">
-                                  <span style="font-size: 10px; font-weight: 800; color: #0F172A;">#${student.number}</span>
-                                  <span style="font-size: 9px; font-weight: 700; color: ${badgeColor};">
-                                    ${isFemale ? 'Kız' : 'Erkek'}
-                                  </span>
+                              <div style="background-color: ${bgColor}; border: 1.5px solid ${borderColor}; border-radius: 6px; padding: 5px 6px; min-height: 52px; height: 52px; display: flex; flex-direction: column; justify-content: center; box-sizing: border-box; min-width: 0; overflow: hidden;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; min-width: 0;">
+                                  <span style="font-size: 10px; font-weight: 800; color: #0F172A; background-color: rgba(255, 255, 255, 0.9); padding: 1px 4px; border-radius: 3px; border: 0.5px solid ${borderColor}; white-space: nowrap;">#${student.number}</span>
+                                  ${
+                                    student.specialNeeds?.frontRowRequired
+                                      ? '<span style="font-size: 8.5px; color: #B45309; font-weight: 800; background-color: #FEF3C7; padding: 1px 3px; border-radius: 3px; white-space: nowrap;">★ Ön</span>'
+                                      : ''
+                                  }
                                 </div>
-                                <div style="font-size: 12px; font-weight: 700; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                <div style="font-size: 11px; font-weight: 800; color: #0F172A; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; width: 100%; box-sizing: border-box;" title="${student.name}">
                                   ${student.name}
                                 </div>
-                                ${
-                                  student.specialNeeds?.frontRowRequired
-                                    ? '<div style="font-size: 9px; color: #D97706; font-weight: 700; margin-top: 1px;">★ Ön Sıra İhtiyacı</div>'
-                                    : ''
-                                }
                               </div>
                             `;
                           };
 
                           return `
-                          <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 8px; padding: 8px;">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748B; text-align: center; margin-bottom: 6px; text-transform: uppercase;">
+                          <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 8px; padding: 6px; box-sizing: border-box; min-width: 0; overflow: hidden; display: flex; flex-direction: column;">
+                            <div style="font-size: 9.5px; font-weight: 700; color: #64748B; text-align: center; margin-bottom: 4px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                               ${colTitle}
                             </div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 5px; width: 100%; box-sizing: border-box; overflow: hidden;">
                               ${renderStudentSeat(left)}
                               ${renderStudentSeat(right)}
                             </div>
@@ -247,8 +260,8 @@ export const exportClassroomSeatingPDF = async ({
             </div>
 
             <!-- İstatistik ve İmza Bölümü -->
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 2px solid #E2E8F0; padding-top: 14px; margin-top: 14px;">
-              <div style="display: flex; gap: 20px; font-size: 12px; color: #334155;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 2px solid #E2E8F0; padding-top: 12px; margin-top: 12px; width: 100%; box-sizing: border-box;">
+              <div style="display: flex; gap: 16px; font-size: 11.5px; color: #334155;">
                 <div>
                   <span style="color: #64748B;">Mevcut / Yerleşen:</span>
                   <strong style="color: #0F172A; margin-left: 4px;">${totalSeated} / ${classroom.students.length}</strong>
@@ -267,16 +280,16 @@ export const exportClassroomSeatingPDF = async ({
               </div>
 
               <!-- İmza Alanları -->
-              <div style="display: flex; gap: 40px; text-align: center;">
-                <div style="width: 160px;">
-                  <div style="font-size: 12px; font-weight: 700; color: #0F172A;">${classroom.advisoryTeacher || 'Danışman Öğretmen'}</div>
-                  <div style="font-size: 11px; color: #64748B;">Sınıf Rehber Öğretmeni</div>
-                  <div style="border-bottom: 1px dashed #94A3B8; height: 32px; margin-top: 4px;"></div>
+              <div style="display: flex; gap: 32px; text-align: center;">
+                <div style="width: 150px;">
+                  <div style="font-size: 11.5px; font-weight: 700; color: #0F172A;">${classroom.advisoryTeacher || 'Danışman Öğretmen'}</div>
+                  <div style="font-size: 10.5px; color: #64748B;">Sınıf Rehber Öğretmeni</div>
+                  <div style="border-bottom: 1px dashed #94A3B8; height: 28px; margin-top: 3px;"></div>
                 </div>
-                <div style="width: 160px;">
-                  <div style="font-size: 12px; font-weight: 700; color: #0F172A;">Okul Yönetimi</div>
-                  <div style="font-size: 11px; color: #64748B;">Onay / Mühür</div>
-                  <div style="border-bottom: 1px dashed #94A3B8; height: 32px; margin-top: 4px;"></div>
+                <div style="width: 150px;">
+                  <div style="font-size: 11.5px; font-weight: 700; color: #0F172A;">Okul Yönetimi</div>
+                  <div style="font-size: 10.5px; color: #64748B;">Onay / Mühür</div>
+                  <div style="border-bottom: 1px dashed #94A3B8; height: 28px; margin-top: 3px;"></div>
                 </div>
               </div>
             </div>
@@ -290,22 +303,22 @@ export const exportClassroomSeatingPDF = async ({
     doc.write(htmlContent);
     doc.close();
 
-    // Kısa bir süre bekleyerek iframe render'ını garanti et
-    await new Promise((r) => setTimeout(r, 120));
+    // Render süresini garanti et
+    await new Promise((r) => setTimeout(r, 140));
 
-    // html2canvas ile izole DOM'u çek (oklch içeren harici stiller bu iframe'de bulunmaz)
+    // html2canvas ile izole DOM'u çek (oklch içeren stiller bu iframe'de bulunmaz)
     const canvas = await html2canvas(doc.body, {
       scale: 2,
       useCORS: true,
       logging: false,
       backgroundColor: '#FFFFFF',
-      width: 1200,
-      windowWidth: 1200
+      width: 1120,
+      windowWidth: 1120
     });
 
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
 
-    // jsPDF: A4 Yatay (Landscape)
+    // jsPDF: A4 Yatay (Landscape 297mm x 210mm)
     const pdf = new jsPDF({
       orientation: 'landscape',
       unit: 'mm',

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Classroom, Student } from '../types';
+import { Classroom, Student, Gender } from '../types';
 import { generateDefaultDesks } from '../data/mockData';
 import {
   X,
@@ -12,17 +12,22 @@ import {
   AlertCircle,
   Search,
   CheckSquare,
-  Square
+  Square,
+  ArrowLeftRight
 } from 'lucide-react';
 
 interface ClassModalProps {
   classroomToEdit?: Classroom | null;
+  currentUserEmail?: string;
+  currentUserName?: string;
   onClose: () => void;
   onSaveClassroom: (classroom: Classroom) => void;
 }
 
 export const ClassModal: React.FC<ClassModalProps> = ({
   classroomToEdit,
+  currentUserEmail,
+  currentUserName,
   onClose,
   onSaveClassroom
 }) => {
@@ -32,7 +37,7 @@ export const ClassModal: React.FC<ClassModalProps> = ({
   // Classroom fields
   const [name, setName] = useState(classroomToEdit?.name || '10-A');
   const [advisoryTeacher, setAdvisoryTeacher] = useState(
-    classroomToEdit?.advisoryTeacher || 'Öğretmen Adı'
+    classroomToEdit?.advisoryTeacher || currentUserName || 'Öğretmen Adı'
   );
   const [academicYear, setAcademicYear] = useState(
     classroomToEdit?.academicYear || '2025-2026'
@@ -48,10 +53,11 @@ export const ClassModal: React.FC<ClassModalProps> = ({
   // Quick single add fields
   const [singleNo, setSingleNo] = useState('');
   const [singleName, setSingleName] = useState('');
-  const [singleGender, setSingleGender] = useState<'female' | 'male'>('female');
+  const [singleGender, setSingleGender] = useState<Gender>('female');
 
   // Bulk add state
   const [bulkInput, setBulkInput] = useState('');
+  const [bulkDefaultGender, setBulkDefaultGender] = useState<Gender>('female');
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [bulkSuccessMsg, setBulkSuccessMsg] = useState<string | null>(null);
 
@@ -83,7 +89,6 @@ export const ClassModal: React.FC<ClassModalProps> = ({
       number: trimmedNo,
       name: trimmedName,
       gender: singleGender,
-      academicLevel: 'medium',
       specialNeeds: { frontRowRequired: false },
       avoidWithStudentIds: []
     };
@@ -93,7 +98,106 @@ export const ClassModal: React.FC<ClassModalProps> = ({
     setSingleName('');
   };
 
-  // Toplu Öğrenci İçe Aktarma (Okul No - Ad Soyad formatı)
+  // Cinsiyet tespit yardımcıları (Türkçe karakter ve büyük/küçük harf toleranslı)
+  const isMaleToken = (tok: string): boolean => {
+    const t = tok.trim().toUpperCase().replace(/İ/g, 'I');
+    return ['E', 'ERKEK', 'BOY', 'M', 'MALE'].includes(t);
+  };
+
+  const isFemaleToken = (tok: string): boolean => {
+    const t = tok.trim().toUpperCase().replace(/İ/g, 'I');
+    return ['K', 'KIZ', 'KIZ', 'GIRL', 'F', 'FEMALE'].includes(t);
+  };
+
+  // Tek satırı ayrıştıran ve cinsiyet kelimelerini isimden kesin olarak temizleyen fonksiyon
+  const parseStudentLine = (
+    rawLine: string,
+    fallbackGender: Gender
+  ): { number: string; name: string; gender: Gender } | null => {
+    const line = rawLine.replace(/[\u00A0\u200B]/g, ' ').trim();
+    if (!line) return null;
+
+    let detectedGender: Gender | null = null;
+    let num = '';
+    let name = '';
+
+    // 1. Ayırıcı kontrolü: Tab (\t), Noktalı Virgül (;), Virgül (,) veya Tire (- / – / —)
+    let parts: string[] = [];
+    if (line.includes('\t')) {
+      parts = line.split('\t').map((p) => p.trim()).filter(Boolean);
+    } else if (line.includes(';') || line.includes(',')) {
+      parts = line.split(/[;,]/).map((p) => p.trim()).filter(Boolean);
+    } else if (/[-–—]/.test(line)) {
+      parts = line.split(/[-–—]/).map((p) => p.trim()).filter(Boolean);
+    }
+
+    if (parts.length >= 3) {
+      // Örn: ["101", "Ahmet Yılmaz", "E"] veya ["101", "Ahmet Yılmaz", "Erkek"]
+      if (/^\d+$/.test(parts[0])) {
+        num = parts[0];
+        const lastPart = parts[parts.length - 1];
+        if (isMaleToken(lastPart)) {
+          detectedGender = 'male';
+          name = parts.slice(1, -1).join(' ').trim();
+        } else if (isFemaleToken(lastPart)) {
+          detectedGender = 'female';
+          name = parts.slice(1, -1).join(' ').trim();
+        } else {
+          name = parts.slice(1).join(' ').trim();
+        }
+      } else {
+        name = parts.join(' ').trim();
+      }
+    } else if (parts.length === 2) {
+      // Örn: ["101", "Ahmet Yılmaz"] veya ["101", "Ahmet Yılmaz Erkek"]
+      if (/^\d+$/.test(parts[0])) {
+        num = parts[0];
+        name = parts[1];
+      } else {
+        name = parts.join(' ').trim();
+      }
+    } else {
+      // Ayırıcı yok: Örn "13 DOVLETALİ AMANOV Erkek" veya "101 Ahmet Yılmaz"
+      const match = line.match(/^(\d+)[\s.:]+(.+)$/);
+      if (match) {
+        num = match[1].trim();
+        name = match[2].trim();
+      } else {
+        name = line;
+      }
+    }
+
+    // 2. İsmin son kelimesinde cinsiyet bilgisi varsa ayıkla ve temizle
+    // Örn: "KEREM BOEB Erkek" -> name: "KEREM BOEB", gender: "male"
+    // Örn: "YAZ YILDIZ Kız" -> name: "YAZ YILDIZ", gender: "female"
+    const tokens = name.split(/\s+/).filter(Boolean);
+    if (tokens.length >= 2) {
+      const lastToken = tokens[tokens.length - 1];
+      if (isMaleToken(lastToken)) {
+        detectedGender = 'male';
+        tokens.pop();
+        name = tokens.join(' ').trim();
+      } else if (isFemaleToken(lastToken)) {
+        detectedGender = 'female';
+        tokens.pop();
+        name = tokens.join(' ').trim();
+      }
+    }
+
+    // 3. İsim sonundaki tire ve kalıntıları temizle
+    name = name.replace(/[-–—/]+$/, '').trim();
+    name = name.replace(/\b(erkek|kız|kiz)\b$/i, '').trim();
+
+    if (!name) return null;
+
+    return {
+      number: num,
+      name,
+      gender: detectedGender || fallbackGender
+    };
+  };
+
+  // Toplu Öğrenci İçe Aktarma (Okul No - Ad Soyad - Cinsiyet formatı)
   const handleBulkImport = () => {
     setBulkError(null);
     setBulkSuccessMsg(null);
@@ -107,55 +211,29 @@ export const ClassModal: React.FC<ClassModalProps> = ({
     const existingNumbers = new Set(studentList.map((s) => s.number));
     const newStudents: Student[] = [];
     let skippedCount = 0;
+    let autoCounter = 100 + studentList.length + 1;
 
     for (const line of lines) {
-      let num = '';
-      let studentName = '';
-      let gender: 'female' | 'male' = 'female';
+      const parsed = parseStudentLine(line, bulkDefaultGender);
+      if (!parsed) continue;
 
-      // 1. "101 - Ahmet Yılmaz" veya "101-Ahmet Yılmaz" formatı
-      if (line.includes('-')) {
-        const parts = line.split('-');
-        num = parts[0].trim();
-        studentName = parts.slice(1).join('-').trim();
-      }
-      // 2. Tab veya virgül ayrımı
-      else if (line.includes('\t')) {
-        const parts = line.split('\t').map((p) => p.trim()).filter(Boolean);
-        num = parts[0] || '';
-        studentName = parts.slice(1).join(' ');
-      } else if (line.includes(',')) {
-        const parts = line.split(',').map((p) => p.trim()).filter(Boolean);
-        num = parts[0] || '';
-        studentName = parts[1] || '';
-      }
-      // 3. "101 Ahmet Yılmaz" (boşluklu format)
-      else {
-        const match = line.match(/^(\d+)[\s.:]+(.+)$/);
-        if (match) {
-          num = match[1].trim();
-          studentName = match[2].trim();
-        } else {
-          studentName = line;
-          num = String(100 + studentList.length + newStudents.length + 1);
-        }
+      let studentNo = parsed.number;
+      if (!studentNo) {
+        studentNo = String(autoCounter++);
       }
 
-      if (studentName) {
-        if (existingNumbers.has(num)) {
-          skippedCount++;
-        } else {
-          existingNumbers.add(num);
-          newStudents.push({
-            id: 's_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-            number: num,
-            name: studentName,
-            gender,
-            academicLevel: 'medium',
-            specialNeeds: { frontRowRequired: false },
-            avoidWithStudentIds: []
-          });
-        }
+      if (existingNumbers.has(studentNo)) {
+        skippedCount++;
+      } else {
+        existingNumbers.add(studentNo);
+        newStudents.push({
+          id: 's_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+          number: studentNo,
+          name: parsed.name,
+          gender: parsed.gender,
+          specialNeeds: { frontRowRequired: false },
+          avoidWithStudentIds: []
+        });
       }
     }
 
@@ -163,15 +241,17 @@ export const ClassModal: React.FC<ClassModalProps> = ({
       setBulkError(
         skippedCount > 0
           ? 'Girilen tüm öğrenciler numaralarıyla zaten listede mevcut.'
-          : 'Geçerli bir "Okul No - Ad Soyad" formatı çözümlenemedi.'
+          : 'Geçerli bir öğrenci formatı çözümlenemedi. (Örn: 101 - Ahmet Yılmaz - E)'
       );
       return;
     }
 
     setStudentList([...studentList, ...newStudents]);
     setBulkInput('');
+    const femaleAdded = newStudents.filter((s) => s.gender === 'female').length;
+    const maleAdded = newStudents.filter((s) => s.gender === 'male').length;
     setBulkSuccessMsg(
-      `${newStudents.length} öğrenci başarıyla listeye eklendi.${
+      `${newStudents.length} öğrenci başarıyla eklendi (${femaleAdded} Kız, ${maleAdded} Erkek).${
         skippedCount > 0 ? ` (${skippedCount} mükerrer numara atlandı)` : ''
       }`
     );
@@ -181,6 +261,15 @@ export const ClassModal: React.FC<ClassModalProps> = ({
   const handleRemoveStudent = (id: string) => {
     setStudentList(studentList.filter((s) => s.id !== id));
     setSelectedStudentIds(selectedStudentIds.filter((sid) => sid !== id));
+  };
+
+  // Cinsiyet Değiştir (Tıkla-Değiştir)
+  const handleToggleStudentGender = (id: string) => {
+    setStudentList(
+      studentList.map((s) =>
+        s.id === id ? { ...s, gender: s.gender === 'female' ? 'male' : 'female' } : s
+      )
+    );
   };
 
   // Toplu Seçilenleri Çıkar (Sil)
@@ -268,6 +357,7 @@ export const ClassModal: React.FC<ClassModalProps> = ({
         id: 'class-' + Date.now(),
         name: name.trim(),
         advisoryTeacher: advisoryTeacher.trim(),
+        creatorEmail: currentUserEmail,
         academicYear: academicYear.trim(),
         rowsCount,
         columnsCount,
@@ -442,17 +532,17 @@ export const ClassModal: React.FC<ClassModalProps> = ({
           {activeTab === 'students' && (
             <div className="space-y-6">
               
-              {/* 1. TOPLU ÖĞRENCİ EKLEME (OKUL NO - AD SOYAD) */}
+              {/* 1. TOPLU ÖĞRENCİ EKLEME (OKUL NO - AD SOYAD - CİNSİYET) */}
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                   <div className="flex items-center gap-2">
                     <FileSpreadsheet className="w-4 h-4 text-blue-900" />
                     <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                      Toplu Öğrenci Ekle (Okul No - Ad Soyad)
+                      Toplu Öğrenci Ekle (Okul No - Ad Soyad - Cinsiyet)
                     </h4>
                   </div>
                   <span className="text-[11px] text-slate-500">
-                    Örnek: <code className="bg-white px-1.5 py-0.5 rounded border text-blue-900">101 - Ada Yılmaz</code>
+                    Format: <code className="bg-white px-1.5 py-0.5 rounded border text-blue-900 font-bold">101 - Ahmet Yılmaz - E</code> / <code className="bg-white px-1.5 py-0.5 rounded border text-blue-900 font-bold">102 - Ayşe Kaya - K</code>
                   </span>
                 </div>
 
@@ -471,18 +561,43 @@ export const ClassModal: React.FC<ClassModalProps> = ({
                 )}
 
                 <textarea
-                  rows={3}
+                  rows={4}
                   value={bulkInput}
                   onChange={(e) => setBulkInput(e.target.value)}
-                  placeholder={"101 - Ada Yılmaz\n102 - Batuhan Kaya\n103 - Ceren Demir\n104 - Deniz Şahin"}
+                  placeholder={"101 - Ahmet Yılmaz - E\n102 - Ayşe Kaya - K\n103 - Kerem Boeb - Erkek\n104 - Tuana Türkyılmaz - Kız\n105 Mert Sevim Erkek\n106 Sude Ak K"}
                   className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-600 focus:outline-hidden bg-white"
                 />
 
-                <div className="flex justify-end">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  {/* Belirtilmemişse varsayılan cinsiyet */}
+                  <div className="flex items-center gap-3 text-xs bg-white px-3 py-1.5 rounded-xl border border-slate-200">
+                    <span className="font-semibold text-slate-600">Varsayılan Cinsiyet:</span>
+                    <label className="flex items-center gap-1.5 cursor-pointer font-bold text-pink-700">
+                      <input
+                        type="radio"
+                        name="bulkDefaultGender"
+                        checked={bulkDefaultGender === 'female'}
+                        onChange={() => setBulkDefaultGender('female')}
+                        className="text-pink-600 cursor-pointer"
+                      />
+                      Kız
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer font-bold text-sky-700">
+                      <input
+                        type="radio"
+                        name="bulkDefaultGender"
+                        checked={bulkDefaultGender === 'male'}
+                        onChange={() => setBulkDefaultGender('male')}
+                        className="text-sky-600 cursor-pointer"
+                      />
+                      Erkek
+                    </label>
+                  </div>
+
                   <button
                     type="button"
                     onClick={handleBulkImport}
-                    className="px-4 py-1.5 bg-blue-900 hover:bg-blue-800 text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                    className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
                     Listeyi İçe Aktar ve Ekle
@@ -490,18 +605,18 @@ export const ClassModal: React.FC<ClassModalProps> = ({
                 </div>
               </div>
 
-              {/* 2. TEKLİ ÖĞRENCİ EKLEME */}
+              {/* 2. TEKLİ ÖĞRENCİ EKLEME (OKUL NO + AD SOYAD + CİNSİYET) */}
               <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3">
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                   Hızlı Tekli Öğrenci Ekle
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
                   <div>
                     <input
                       type="text"
                       value={singleNo}
                       onChange={(e) => setSingleNo(e.target.value)}
-                      placeholder="Okul No (Örn: 105)"
+                      placeholder="Okul No (105)"
                       className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-600 focus:outline-hidden"
                     />
                   </div>
@@ -513,6 +628,16 @@ export const ClassModal: React.FC<ClassModalProps> = ({
                       placeholder="Öğrenci Adı Soyadı"
                       className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-600 focus:outline-hidden"
                     />
+                  </div>
+                  <div>
+                    <select
+                      value={singleGender}
+                      onChange={(e) => setSingleGender(e.target.value as Gender)}
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white font-semibold text-slate-700 focus:ring-2 focus:ring-blue-600 cursor-pointer"
+                    >
+                      <option value="female">Kız</option>
+                      <option value="male">Erkek</option>
+                    </select>
                   </div>
                   <div>
                     <button
@@ -570,7 +695,7 @@ export const ClassModal: React.FC<ClassModalProps> = ({
                 <div className="border border-slate-200 rounded-xl overflow-hidden bg-white max-h-60 overflow-y-auto">
                   {studentList.length === 0 ? (
                     <div className="py-8 text-center text-xs text-slate-400">
-                      Henüz sınıfa öğrenci eklenmedi. Yukarıdaki toplu alandan "Okul No - Ad Soyad" şeklinde ekleyebilirsiniz.
+                      Henüz sınıfa öğrenci eklenmedi. Yukarıdaki toplu alandan "Okul No - Ad Soyad - Cinsiyet" şeklinde ekleyebilirsiniz.
                     </div>
                   ) : (
                     <table className="w-full text-left text-xs">
@@ -589,14 +714,16 @@ export const ClassModal: React.FC<ClassModalProps> = ({
                               )}
                             </button>
                           </th>
-                          <th className="p-2.5 font-bold w-24">Okul No</th>
+                          <th className="p-2.5 font-bold w-20">Okul No</th>
                           <th className="p-2.5 font-bold">Adı Soyadı</th>
-                          <th className="p-2.5 font-bold w-20 text-right">İşlem</th>
+                          <th className="p-2.5 font-bold w-24 text-center">Cinsiyet</th>
+                          <th className="p-2.5 font-bold w-16 text-right">İşlem</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {filteredStudents.map((st) => {
                           const isSelected = selectedStudentIds.includes(st.id);
+                          const isFemale = st.gender === 'female';
                           return (
                             <tr
                               key={st.id}
@@ -623,6 +750,21 @@ export const ClassModal: React.FC<ClassModalProps> = ({
                               <td className="p-2.5 font-semibold text-slate-800">
                                 {st.name}
                               </td>
+                              <td className="p-2.5 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleStudentGender(st.id)}
+                                  title="Cinsiyeti Değiştir (Tıkla)"
+                                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold border transition-colors cursor-pointer ${
+                                    isFemale
+                                      ? 'bg-pink-50 text-pink-700 border-pink-200 hover:bg-pink-100'
+                                      : 'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100'
+                                  }`}
+                                >
+                                  <span>{isFemale ? 'Kız' : 'Erkek'}</span>
+                                  <ArrowLeftRight className="w-2.5 h-2.5 opacity-50" />
+                                </button>
+                              </td>
                               <td className="p-2.5 text-right">
                                 <button
                                   type="button"
@@ -648,12 +790,20 @@ export const ClassModal: React.FC<ClassModalProps> = ({
         </div>
 
         {/* Modal Alt Aksiyon Barı */}
-        <div className="px-6 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
-          <div className="text-xs text-slate-500">
-            {activeTab === 'students' ? (
-              <span>Toplam <strong>{studentList.length}</strong> öğrenci kaydedilecek</span>
-            ) : (
-              <span>Sınıf: <strong>{name || '-'}</strong> · {rowsCount}x{columnsCount} sıra</span>
+        <div className="px-6 py-3.5 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
+          <div className="text-xs text-slate-600 flex flex-wrap items-center gap-2">
+            <span>Toplam <strong className="text-slate-900">{studentList.length}</strong> Öğrenci</span>
+            <span className="text-slate-300 hidden sm:inline">·</span>
+            <span className="font-semibold text-pink-700 bg-pink-50 px-2 py-0.5 rounded border border-pink-200">
+              {studentList.filter((s) => s.gender === 'female').length} Kız
+            </span>
+            <span className="font-semibold text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+              {studentList.filter((s) => s.gender === 'male').length} Erkek
+            </span>
+            {activeTab === 'info' && (
+              <span className="text-slate-400 text-[11px] ml-1">
+                ({rowsCount}x{columnsCount} sıra planı)
+              </span>
             )}
           </div>
 

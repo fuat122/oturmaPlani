@@ -32,32 +32,16 @@ import {
   Info,
   School,
   PlusCircle,
-  Sparkles
+  Shield,
+  Eye,
+  Lock
 } from 'lucide-react';
 
 const LOCAL_STORAGE_CLASSES_KEY = 'alkev_classrooms_storage_v1';
 const LOCAL_STORAGE_ACTIVE_CLASS_ID = 'alkev_active_classroom_id';
-const LOCAL_STORAGE_ROLE_KEY = 'alkev_teacher_role_v1';
 
 const ClassroomApp: React.FC = () => {
   const { currentUser, loading } = useAuth();
-
-  // Role state: advisory (Sınıf Rehber Öğretmeni) vs. branch (Branş Öğretmeni)
-  const [userRole, setUserRole] = useState<TeacherRole>(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_ROLE_KEY);
-    return saved === 'branch' ? 'branch' : 'advisory';
-  });
-
-  const handleRoleChange = (newRole: TeacherRole) => {
-    setUserRole(newRole);
-    localStorage.setItem(LOCAL_STORAGE_ROLE_KEY, newRole);
-    showToast(
-      newRole === 'advisory'
-        ? 'Sınıf Rehber Öğretmeni moduna geçildi (Tam Yetkili).'
-        : 'Branş Öğretmeni moduna geçildi (Salt Okunur).',
-      'info'
-    );
-  };
 
   // Classrooms State with LocalStorage Persistence
   const [classrooms, setClassrooms] = useState<Classroom[]>(() => {
@@ -137,9 +121,39 @@ const ClassroomApp: React.FC = () => {
   // Active classroom resolution
   const activeClassroom = classrooms.find((c) => c.id === activeClassId) || classrooms[0] || null;
 
+  // Sahiplik & Yetkilendirme Kuralı:
+  // Kullanıcı bu sınıfı kendisi oluşturduysa -> Sınıf Danışmanı (Düzenleme / Takas / Yorum / PDF Yetkili)
+  // Kullanıcı bu sınıfı oluşturmadıysa -> Branş Öğretmeni (Salt Okunur)
+  const isClassOwner = Boolean(
+    currentUser?.email &&
+    activeClassroom &&
+    (
+      (activeClassroom.creatorEmail && activeClassroom.creatorEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
+      (currentUser.isTestUser && (activeClassroom.creatorEmail === 'ogretmen@alkev.k12.tr' || activeClassroom.advisoryTeacher === 'Zeynep Kaya')) ||
+      (activeClassroom.advisoryTeacher && currentUser.displayName && activeClassroom.advisoryTeacher.trim().toLowerCase() === currentUser.displayName.trim().toLowerCase())
+    )
+  );
+
+  const effectiveRole: TeacherRole = isClassOwner ? 'advisory' : 'branch';
+
+  // Kullanıcının oluşturduğu herhangi bir sınıf var mı?
+  const myCreatedClassesCount = classrooms.filter(
+    (c) =>
+      currentUser?.email &&
+      (
+        (c.creatorEmail && c.creatorEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
+        (currentUser.isTestUser && (c.creatorEmail === 'ogretmen@alkev.k12.tr' || c.advisoryTeacher === 'Zeynep Kaya')) ||
+        (c.advisoryTeacher && currentUser.displayName && c.advisoryTeacher.trim().toLowerCase() === currentUser.displayName.trim().toLowerCase())
+      )
+  ).length;
+
   // Unified updater for active classroom with both Local State + Firestore persistence
   const updateActiveClassroom = async (updated: Partial<Classroom>) => {
     if (!activeClassroom) return;
+    if (!isClassOwner) {
+      showToast('Yalnızca sınıfı oluşturan danışman öğretmen düzenleme yapabilir.', 'error');
+      return;
+    }
 
     const mergedClassroom: Classroom = {
       ...activeClassroom,
@@ -156,9 +170,9 @@ const ClassroomApp: React.FC = () => {
     await saveClassroomToFirestore(mergedClassroom);
   };
 
-  // Update desk positions (Only if not branch)
+  // Update desk positions (Only if owner)
   const handleUpdateDesks = (newDesks: Desk[]) => {
-    if (userRole === 'branch') {
+    if (!isClassOwner) {
       showToast('Branş öğretmenleri oturma düzenini değiştiremez.', 'error');
       return;
     }
@@ -168,7 +182,7 @@ const ClassroomApp: React.FC = () => {
   // Update students list (Add, Edit, Delete)
   const handleUpdateStudents = (newStudents: Student[]) => {
     if (!activeClassroom) return;
-    if (userRole === 'branch') {
+    if (!isClassOwner) {
       showToast('Branş öğretmenleri öğrenci listesini güncelleyemez.', 'error');
       return;
     }
@@ -192,7 +206,7 @@ const ClassroomApp: React.FC = () => {
   // Bireysel Ders İçi Öğrenci Yorumu Kaydetme
   const handleSaveStudentComment = (studentId: string, newObservation: StudentObservationLog) => {
     if (!activeClassroom) return;
-    if (userRole === 'branch') {
+    if (!isClassOwner) {
       showToast('Branş öğretmenleri yorum ekleyemez.', 'error');
       return;
     }
@@ -219,7 +233,7 @@ const ClassroomApp: React.FC = () => {
   // Bireysel Yorum Silme
   const handleDeleteStudentComment = (studentId: string, observationId: string) => {
     if (!activeClassroom) return;
-    if (userRole === 'branch') {
+    if (!isClassOwner) {
       showToast('Branş öğretmenleri yorum silemez.', 'error');
       return;
     }
@@ -246,7 +260,7 @@ const ClassroomApp: React.FC = () => {
   // Topluca Sınıfa Yorum Kaydetme
   const handleSaveClassroomLog = (newLog: ClassroomLog, applyToAllStudents: boolean) => {
     if (!activeClassroom) return;
-    if (userRole === 'branch') {
+    if (!isClassOwner) {
       showToast('Branş öğretmenleri sınıf notu ekleyemez.', 'error');
       return;
     }
@@ -284,16 +298,16 @@ const ClassroomApp: React.FC = () => {
   // Sınıf Yorumu Silme
   const handleDeleteClassroomLog = (logId: string) => {
     if (!activeClassroom) return;
-    if (userRole === 'branch') return;
+    if (!isClassOwner) return;
     const updatedLogs = (activeClassroom.classroomLogs || []).filter((l) => l.id !== logId);
     updateActiveClassroom({ classroomLogs: updatedLogs });
     showToast('Sınıf notu silindi.', 'info');
   };
 
-  // Run Smart Seating Algorithm
+  // Run Smart Seating Algorithm (Yalnızca Sınıf Danışmanı)
   const handleRunSmartSeating = () => {
-    if (userRole === 'branch') {
-      showToast('Branş öğretmenleri yerleşim yapamaz.', 'error');
+    if (!isClassOwner) {
+      showToast('Yalnızca sınıfı oluşturan danışman öğretmen akıllı yerleşim yapabilir.', 'error');
       return;
     }
 
@@ -318,7 +332,7 @@ const ClassroomApp: React.FC = () => {
 
   // Clear all seats
   const handleClearDesks = () => {
-    if (userRole === 'branch') return;
+    if (!isClassOwner) return;
     if (!activeClassroom) return;
     if (confirm('Tüm sıralardaki öğrencileri kaldırmak istediğinize emin misiniz?')) {
       const cleared = activeClassroom.desks.map((d) => ({
@@ -331,10 +345,10 @@ const ClassroomApp: React.FC = () => {
     }
   };
 
-  // Export PDF (Sadece Sınıf Öğretmeni İndirebilir)
+  // Export PDF (Sadece Sınıfı Oluşturan Öğretmen İndirebilir)
   const handleExportPDF = async () => {
-    if (userRole === 'branch') {
-      showToast('Sınıf oturma planı PDF çıktısı yalnızca sınıf rehber öğretmeni tarafından indirilebilir.', 'error');
+    if (!isClassOwner) {
+      showToast('Sınıf oturma planı PDF çıktısı yalnızca sınıfı oluşturan danışman öğretmen tarafından indirilebilir.', 'error');
       return;
     }
 
@@ -354,16 +368,27 @@ const ClassroomApp: React.FC = () => {
     }
   };
 
-  // Create new classroom
+  // Create new classroom (Kullanıcı kendi sınıfını oluşturur ve sahibi olur)
   const handleSaveNewClassroom = async (newClass: Classroom) => {
-    setClassrooms((prev) => [...prev, newClass]);
-    setActiveClassId(newClass.id);
-    await saveClassroomToFirestore(newClass);
-    showToast(`"${newClass.name}" sınıfı başarıyla oluşturuldu ve kaydedildi.`, 'success');
+    if (!currentUser) return;
+    const classToSave: Classroom = {
+      ...newClass,
+      creatorEmail: currentUser.email,
+      creatorUid: currentUser.uid,
+      advisoryTeacher: newClass.advisoryTeacher || currentUser.displayName || 'Öğretmen'
+    };
+    setClassrooms((prev) => [...prev, classToSave]);
+    setActiveClassId(classToSave.id);
+    await saveClassroomToFirestore(classToSave);
+    showToast(`"${classToSave.name}" sınıfı başarıyla oluşturuldu. Düzenleme yetkiniz tanımlandı.`, 'success');
   };
 
   // Update existing classroom info
   const handleSaveEditClassroom = async (editedClass: Classroom) => {
+    if (!isClassOwner) {
+      showToast('Bu sınıfı düzenleme yetkiniz bulunmamaktadır.', 'error');
+      return;
+    }
     setClassrooms((prev) => prev.map((c) => (c.id === editedClass.id ? editedClass : c)));
     await saveClassroomToFirestore(editedClass);
     showToast(`"${editedClass.name}" sınıf bilgileri güncellendi.`, 'success');
@@ -428,8 +453,8 @@ const ClassroomApp: React.FC = () => {
       <Navbar
         classrooms={classrooms}
         activeClassroom={activeClassroom || defaultClassrooms[0]}
-        userRole={userRole}
-        onRoleChange={handleRoleChange}
+        userRole={effectiveRole}
+        isClassOwner={isClassOwner}
         onSelectClassroom={(c) => setActiveClassId(c.id)}
         onOpenNewClassModal={() => setIsNewClassModalOpen(true)}
         onOpenEditClassModal={() => setIsEditClassModalOpen(true)}
@@ -438,6 +463,33 @@ const ClassroomApp: React.FC = () => {
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         
+        {/* Kullanıcı henüz sınıf oluşturmadıysa ve diğer sınıfları salt okunur izliyorsa bildirim kartı */}
+        {!isClassOwner && (
+          <div className="mb-6 p-4 rounded-2xl bg-amber-50/80 border border-amber-200 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in duration-200">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
+                <Eye className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-amber-950">
+                  Branş Öğretmeni Modu (Salt Okunur Erişim)
+                </h4>
+                <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                  Bu sınıf <span className="font-bold underline">{activeClassroom?.advisoryTeacher || 'başka bir danışman öğretmen'}</span> tarafından oluşturulmuştur. Kendi sınıfınızı oluşturup oturma planı düzenlemek, öğrenci eklemek ve PDF indirmek için <strong>"+ Yeni Sınıf"</strong> oluşturabilirsiniz.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsNewClassModalOpen(true)}
+              className="shrink-0 px-3.5 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+            >
+              <PlusCircle className="w-3.5 h-3.5 text-amber-300" />
+              <span>Kendi Sınıfımı Oluştur</span>
+            </button>
+          </div>
+        )}
+
         {/* Sınıf Seçilmemişse Uyarı Ekranı */}
         {!activeClassroom ? (
           <div className="bg-white rounded-2xl border-2 border-dashed border-amber-300 p-12 text-center shadow-xs max-w-2xl mx-auto my-8">
@@ -450,17 +502,15 @@ const ClassroomApp: React.FC = () => {
             <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-md mx-auto leading-relaxed">
               Oturma planı ve öğrenci listesini yönetebilmek için üst menüden kayıtlı bir sınıf seçebilir ya da hemen yeni bir sınıf oluşturabilirsiniz.
             </p>
-            {userRole === 'advisory' && (
-              <div className="mt-6 flex items-center justify-center gap-3">
-                <button
-                  onClick={() => setIsNewClassModalOpen(true)}
-                  className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-2"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  + Yeni Sınıf Oluştur
-                </button>
-              </div>
-            )}
+            <div className="mt-6 flex items-center justify-center gap-3">
+              <button
+                onClick={() => setIsNewClassModalOpen(true)}
+                className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-2"
+              >
+                <PlusCircle className="w-4 h-4" />
+                + Yeni Sınıf Oluştur
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -484,9 +534,9 @@ const ClassroomApp: React.FC = () => {
               </div>
 
               <div className="text-xs text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-xl self-start sm:self-auto shadow-2xs">
-                {userRole === 'advisory' ? (
+                {isClassOwner ? (
                   <span>
-                    <span className="font-semibold text-blue-900">Danışman Modu:</span> Koltuklara tıklayarak yer değiştirebilir, ders yorumu ekleyebilirsiniz.
+                    <span className="font-semibold text-emerald-800">Sınıf Yöneticisi:</span> Koltuklara tıklayarak yer değiştirebilir, öğrenci ve ders notu ekleyebilirsiniz.
                   </span>
                 ) : (
                   <span>
@@ -499,7 +549,7 @@ const ClassroomApp: React.FC = () => {
             {/* Toolbar (Smart Seating, PDF, Observation Modal, Add Student, Class Comment, Student Report) */}
             <ClassroomToolbar
               classroom={activeClassroom}
-              userRole={userRole}
+              userRole={effectiveRole}
               isExportingPDF={isExportingPDF}
               onRunSmartSeating={handleRunSmartSeating}
               onExportPDF={handleExportPDF}
@@ -513,7 +563,7 @@ const ClassroomApp: React.FC = () => {
             {/* Interactive Classroom Grid */}
             <ClassroomGrid
               classroom={activeClassroom}
-              userRole={userRole}
+              userRole={effectiveRole}
               onUpdateDesks={handleUpdateDesks}
               onOpenAddStudent={() => openObservationModal('add')}
               onOpenStudentComment={(student) => setSelectedStudentForComment(student)}
@@ -535,7 +585,7 @@ const ClassroomApp: React.FC = () => {
         <StudentObservationModal
           students={activeClassroom.students}
           classroomName={activeClassroom.name}
-          userRole={userRole}
+          userRole={effectiveRole}
           initialMode={observationModalMode}
           onClose={() => setIsObservationModalOpen(false)}
           onUpdateStudents={handleUpdateStudents}
@@ -552,21 +602,25 @@ const ClassroomApp: React.FC = () => {
 
       {isNewClassModalOpen && (
         <ClassModal
+          currentUserEmail={currentUser.email}
+          currentUserName={currentUser.displayName}
           onClose={() => setIsNewClassModalOpen(false)}
           onSaveClassroom={handleSaveNewClassroom}
         />
       )}
 
-      {isEditClassModalOpen && activeClassroom && (
+      {isEditClassModalOpen && activeClassroom && isClassOwner && (
         <ClassModal
           classroomToEdit={activeClassroom}
+          currentUserEmail={currentUser.email}
+          currentUserName={currentUser.displayName}
           onClose={() => setIsEditClassModalOpen(false)}
           onSaveClassroom={handleSaveEditClassroom}
         />
       )}
 
       {/* Bireysel Öğrenci Ders Yorumu Modalı */}
-      {selectedStudentForComment && activeClassroom && (
+      {selectedStudentForComment && activeClassroom && isClassOwner && (
         <StudentCommentModal
           student={selectedStudentForComment}
           teacherName={currentUser.displayName || activeClassroom.advisoryTeacher}
@@ -577,7 +631,7 @@ const ClassroomApp: React.FC = () => {
       )}
 
       {/* Toplu Sınıf Yorumu Modalı */}
-      {isClassroomCommentModalOpen && activeClassroom && (
+      {isClassroomCommentModalOpen && activeClassroom && isClassOwner && (
         <ClassroomCommentModal
           classroomName={activeClassroom.name}
           advisoryTeacher={activeClassroom.advisoryTeacher}

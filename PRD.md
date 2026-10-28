@@ -41,14 +41,17 @@ Uygulama, `oturmaPlani` GitHub Pages deposu üzerinde (`/oturmaPlani/` base yolu
 #### 2.3. Kurumsal Logo & Kimlik
 - **Resmi ALKEV Logosu:** `/public/assets/aistudio/alkev-logo-tr-2025_552f0d5d.png` dosyasındaki resmi ALKEV Özel Okulları amblemi ve tipografisi Navbar'da, Giriş ekranında ve A4 PDF belgesinde kullanılmaktadır.
 
-#### 2.4. Rol Tabanlı Yetkilendirme (RBAC)
-- **Sınıf Rehber Öğretmeni (Danışman):** Sınıfın tam yetkilisidir. Koltuk takası (sürükle/tıkla), öğrenci ekleme/çıkarma/düzenleme, ders içi bireysel öğrenci yorumları, sınıf genel notu ve A4 Yatay PDF indirme yetkisine sahiptir.
-- **Branş Öğretmeni (Salt Okunur):** Sınıfa giren branş öğretmenleri sınıf düzenini yalnızca görüntüleyebilir. Sıra yer değişikliği yapamaz, öğrenci ekleyip çıkaramaz, yorum yazamaz ve PDF indiremez. Bu durum ekranda açık bir bilgilendirme rozetiyle belirtilir.
+#### 2.4. Sınıf Sahipliği ve Rol Tabanlı Yetkilendirme (RBAC)
+- **Sınıf Sahibi / Danışman:** Bir öğretmen yalnızca kendisinin oluşturduğu sınıflar üzerinde tam yetkilidir. Koltuk takası (tıkla-değiştir), öğrenci ekleme/çıkarma/düzenleme, ders içi bireysel yorumlar, sınıf genel notu ve A4 Yatay PDF indirme yetkisine sahiptir.
+- **Branş Öğretmeni (Salt Okunur):** Öğretmenin kendisi oluşturmadığı sınıflar (veya henüz sınıf oluşturmadıysa tüm sınıflar) salt okunur modda açılır. Sıra yer değişikliği yapamaz, öğrenci ekleyip çıkaramaz, yorum yazamaz ve PDF indiremez.
+- **Kendi Sınıfını Oluşturma:** Öğretmen üst menüdeki "+ Yeni Sınıf" butonuyla dilediği zaman kendi sınıfını oluşturabilir; oluşturduğu sınıfa anında düzenleme yetkisi tanımlanır.
 
 #### 2.5. Öğrenci Cinsiyet Yönetimi & Pastel Sıra Renkleri
+- **İfade Standardı:** Cinsiyet alanlarında yalnızca "Kız" ve "Erkek" yazılır; "öğrenci" kelimesi eklenmez.
 - **Kız Öğrenciler:** Açık pastel pembe zemin (`#FDF2F8`, kenarlık `#FBCFE8`, metin `#831843`) ile gösterilir.
 - **Erkek Öğrenciler:** Açık pastel mavi zemin (`#EFF6FF`, kenarlık `#BFDBFE`, metin `#1E3A8A`) ile gösterilir.
-- **Göz Yormayan Tasarım:** Açık tonlar kullanılarak sınıf genel görünümünde sakin ve dengeli bir görsel ritim sağlanmıştır.
+- **Toplu Listede Cinsiyet Ayıklama:** Listeye `101 - Ahmet Yılmaz - Erkek` veya `13 DOVLETALİ AMANOV Erkek` yazıldığında cinsiyet bilgisi akıllıca algılanır ve öğrencinin adına karışması engellenir.
+- **PDF İsim Alanı Optimizasyonu:** PDF çıktısında isimlerin kutucuktan taşmaması için koltuk içi "Kız"/"Erkek" metni gizlenir (zemin rengi cinsiyeti belirtir), alan bütünüyle öğrenci numarası ve ad-soyadına ayrılır.
 
 #### 2.6. Başarı Düzeyi Etiketlemesinin Kaldırılması
 - Pedagojik ilkelere uygun olarak öğrencilerin başarı düzeyleri (ileri/orta/destek) arayüzden ve etiketlerden tamamen kaldırılmıştır. Öğretmenler öğrencilerin gelişimini doğrudan ders içi gözlem ve yorum sistemiyle takip eder.
