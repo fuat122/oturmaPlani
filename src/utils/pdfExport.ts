@@ -94,20 +94,7 @@ export const exportClassroomSeatingPDF = async ({
       }
     });
 
-    // Sütun başlıkları yardımcısı
-    const getColumnTitle = (colIndex: number, totalCols: number): string => {
-      if (totalCols === 2) {
-        return colIndex === 1 ? 'Sol Blok' : 'Sağ Blok';
-      }
-      if (totalCols === 3) {
-        return colIndex === 1 ? 'Sol Blok' : colIndex === 2 ? 'Orta Blok' : 'Sağ Blok';
-      }
-      if (totalCols === 4) {
-        const titles = ['1. Blok (Sol)', '2. Blok (Orta-Sol)', '3. Blok (Orta-Sağ)', '4. Blok (Sağ)'];
-        return titles[colIndex - 1] || `${colIndex}. Blok`;
-      }
-      return `${colIndex}. Blok`;
-    };
+
 
     // İzole iframe oluşturarak Tailwind v4 'oklch' stillerinden %100 arındırıyoruz
     iframe = document.createElement('iframe');
@@ -193,7 +180,7 @@ export const exportClassroomSeatingPDF = async ({
                   return `
                   <div style="display: flex; gap: 8px; align-items: stretch; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;">
                     <!-- Satır Numarası Etiketi -->
-                    <div style="width: 52px; min-width: 52px; max-width: 52px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background-color: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 9.5pt; font-weight: normal; color: #334155; box-sizing: border-box;">
+                    <div style="width: 50px; min-width: 50px; max-width: 50px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background-color: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 9pt; font-weight: normal; color: #334155; box-sizing: border-box; margin: 0; padding: 2px;">
                       ${rowNum}. Sıra
                     </div>
 
@@ -205,12 +192,11 @@ export const exportClassroomSeatingPDF = async ({
                           const desk = deskGrid[`${rowNum}-${colNum}`];
                           const left = desk?.leftStudentId ? studentMap.get(desk.leftStudentId) : null;
                           const right = desk?.rightStudentId ? studentMap.get(desk.rightStudentId) : null;
-                          const colTitle = getColumnTitle(colNum, cols);
 
                           const renderStudentSeat = (student: Student | null | undefined) => {
                             if (!student) {
                               return `
-                                <div style="background-color: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 6px; padding: 4px; min-height: 48px; max-height: 52px; height: 50px; display: flex; align-items: center; justify-content: center; color: #94A3B8; font-size: 9pt; font-style: italic; box-sizing: border-box; min-width: 0; overflow: hidden;">
+                                <div style="background-color: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 5px; padding: 2px 4px; margin: 0; height: auto; min-height: 44px; max-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #94A3B8; font-size: 8.5pt; font-style: italic; box-sizing: border-box; min-width: 0; overflow: visible;">
                                   Boş
                                 </div>
                               `;
@@ -223,20 +209,17 @@ export const exportClassroomSeatingPDF = async ({
                             const borderColor = isFemale ? '#FBCFE8' : '#BFDBFE';
 
                             return `
-                              <div style="background-color: ${bgColor}; border: 1.5px solid ${borderColor}; border-radius: 6px; padding: 4px; min-height: 48px; max-height: 52px; height: 50px; display: flex; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; min-width: 0; overflow: hidden;">
-                                <div style="font-size: 9.5pt; font-weight: normal; color: #0F172A; line-height: 1.1; word-break: break-word; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; width: 100%; box-sizing: border-box; text-align: center;">
+                              <div style="background-color: ${bgColor}; border: 1.5px solid ${borderColor}; border-radius: 5px; padding: 2px 4px; margin: 0; height: auto; min-height: 44px; max-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; min-width: 0; overflow: visible;">
+                                <span style="font-size: 8.5pt; font-weight: normal; color: #0F172A; line-height: 1.1; word-break: break-word; overflow: visible; width: 100%; box-sizing: border-box; text-align: center; margin: 0; padding: 0;">
                                   ${student.name}
-                                </div>
+                                </span>
                               </div>
                             `;
                           };
 
                           return `
-                          <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 6px; padding: 4px; box-sizing: border-box; min-width: 0; overflow: hidden; display: flex; flex-direction: column;">
-                            <div style="font-size: 8pt; font-weight: 700; color: #64748B; text-align: center; margin-bottom: 3px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                              ${colTitle}
-                            </div>
-                            <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px; width: 100%; box-sizing: border-box; overflow: hidden;">
+                          <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 6px; padding: 3px; margin: 0; box-sizing: border-box; min-width: 0; overflow: hidden; display: flex; align-items: stretch;">
+                            <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px; width: 100%; margin: 0; box-sizing: border-box;">
                               ${renderStudentSeat(left)}
                               ${renderStudentSeat(right)}
                             </div>
