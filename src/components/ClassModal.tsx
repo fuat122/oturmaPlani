@@ -40,7 +40,7 @@ export const ClassModal: React.FC<ClassModalProps> = ({
     classroomToEdit?.advisoryTeacher || currentUserName || 'Öğretmen Adı'
   );
   const [academicYear, setAcademicYear] = useState(
-    classroomToEdit?.academicYear || '2025-2026'
+    classroomToEdit?.academicYear || '2026-2027'
   );
   const [rowsCount, setRowsCount] = useState<number>(classroomToEdit?.rowsCount || 4);
   const [columnsCount, setColumnsCount] = useState<number>(classroomToEdit?.columnsCount || 3);
@@ -475,7 +475,7 @@ export const ClassModal: React.FC<ClassModalProps> = ({
                   type="text"
                   value={academicYear}
                   onChange={(e) => setAcademicYear(e.target.value)}
-                  placeholder="2025-2026"
+                  placeholder="2026-2027"
                   className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-600 focus:outline-hidden"
                 />
               </div>

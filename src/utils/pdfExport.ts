@@ -138,7 +138,7 @@ export const exportClassroomSeatingPDF = async ({
               font-family: Arial, Helvetica, sans-serif;
               background-color: #FFFFFF;
               color: #0F172A;
-              padding: 20px;
+              padding: 10px;
               width: 1120px;
               max-width: 100%;
               box-sizing: border-box;
@@ -147,58 +147,58 @@ export const exportClassroomSeatingPDF = async ({
           </style>
         </head>
         <body>
-          <div style="width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden; border: 2px solid #1E3A8A; border-radius: 12px; padding: 20px; background-color: #FFFFFF;">
+          <div style="width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden; border: 2px solid #1E3A8A; border-radius: 10px; padding: 12px; background-color: #FFFFFF;">
             
             <!-- Kurumsal Üst Başlık & Logo -->
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #E2E8F0; padding-bottom: 14px; margin-bottom: 16px; width: 100%; box-sizing: border-box;">
-              <div style="display: flex; align-items: center; gap: 14px;">
-                <img src="${logoBase64}" alt="ALKEV Logo" style="height: 48px; width: auto; object-fit: contain;" />
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #E2E8F0; padding-bottom: 10px; margin-bottom: 12px; width: 100%; box-sizing: border-box;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <img src="${logoBase64}" alt="ALKEV Logo" style="height: 44px; width: auto; object-fit: contain;" />
                 <div>
-                  <div style="color: #1E3A8A; font-size: 17px; font-weight: 800; letter-spacing: -0.5px;">ALKEV ÖZEL OKULLARI</div>
-                  <div style="color: #475569; font-size: 11.5px; font-weight: 600;">Akıllı Sınıf Oturma Düzeni Planı</div>
+                  <div style="color: #1E3A8A; font-size: 16px; font-weight: 800; letter-spacing: -0.5px;">ALKEV ÖZEL OKULLARI</div>
+                  <div style="color: #475569; font-size: 11px; font-weight: 600;">Akıllı Sınıf Oturma Düzeni Planı</div>
                 </div>
               </div>
               <div style="text-align: right;">
-                <div style="background-color: #EFF6FF; border: 1px solid #BFDBFE; color: #1E3A8A; padding: 3px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 700; display: inline-block;">
-                  ${classroom.academicYear || '2025-2026'} Eğitim-Öğretim Yılı
+                <div style="background-color: #EFF6FF; border: 1px solid #BFDBFE; color: #1E3A8A; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-block;">
+                  ${classroom.academicYear || '2026-2027'} Eğitim-Öğretim Yılı
                 </div>
-                <div style="color: #64748B; font-size: 10.5px; margin-top: 3px;">Rapor Tarihi: ${formattedDate}</div>
+                <div style="color: #64748B; font-size: 10px; margin-top: 3px;">Rapor Tarihi: ${formattedDate}</div>
               </div>
             </div>
 
             <!-- Başlık: [Danışman Öğretmen] Danışmanlığında [Sınıf Adı] Sınıfı -->
-            <div style="text-align: center; margin-bottom: 16px; width: 100%;">
-              <h1 style="color: #0F172A; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">
+            <div style="text-align: center; margin-bottom: 12px; width: 100%;">
+              <h1 style="color: #0F172A; font-size: 19px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">
                 ${classroom.advisoryTeacher || 'Danışman Öğretmen'} Danışmanlığında ${classroom.name || 'Sınıf'} Sınıfı
               </h1>
-              <p style="color: #475569; font-size: 11.5px; margin: 3px 0 0 0;">
+              <p style="color: #475569; font-size: 11px; margin: 2px 0 0 0;">
                 Oturma Planı ve Öğrenci Yerleşim Krokisi
               </p>
             </div>
 
             <!-- Akıllı Tahta & Öğretmen Kürsüsü Bölgesi -->
-            <div style="width: 100%; box-sizing: border-box; background-color: #0F172A; color: #FFFFFF; border-radius: 8px; padding: 8px 20px; text-align: center; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
-              <div style="font-size: 10.5px; color: #94A3B8; text-transform: uppercase; font-weight: 700;">[ KAPI TARAFI ]</div>
-              <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px;">
+            <div style="width: 100%; box-sizing: border-box; background-color: #0F172A; color: #FFFFFF; border-radius: 8px; padding: 7px 16px; text-align: center; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+              <div style="font-size: 10px; color: #94A3B8; text-transform: uppercase; font-weight: 700;">[ KAPI TARAFI ]</div>
+              <div style="font-size: 11.5px; font-weight: 700; letter-spacing: 1px;">
                 ✦ ÖĞRETMEN KÜRSÜSÜ & AKILLI TAHTA (ÖN CEPHE) ✦
               </div>
-              <div style="font-size: 10.5px; color: #94A3B8; text-transform: uppercase; font-weight: 700;">[ PENCERE TARAFI ]</div>
+              <div style="font-size: 10px; color: #94A3B8; text-transform: uppercase; font-weight: 700;">[ PENCERE TARAFI ]</div>
             </div>
 
             <!-- Sınıf Sıraları Grid'i (100% Bounded, Sağa Kesinlikle Taşmaz) -->
-            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; width: 100%; box-sizing: border-box; overflow: hidden;">
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; width: 100%; max-width: 100%; box-sizing: border-box; padding: 10px; overflow: hidden;">
               ${Array.from({ length: rows })
                 .map((_, rIdx) => {
                   const rowNum = rIdx + 1;
                   return `
-                  <div style="display: flex; gap: 10px; align-items: stretch; width: 100%; box-sizing: border-box; overflow: hidden;">
+                  <div style="display: flex; gap: 8px; align-items: stretch; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;">
                     <!-- Satır Numarası Etiketi -->
-                    <div style="width: 58px; min-width: 58px; max-width: 58px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 11px; font-weight: 700; color: #334155; box-sizing: border-box;">
+                    <div style="width: 52px; min-width: 52px; max-width: 52px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background-color: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 9.5pt; font-weight: normal; color: #334155; box-sizing: border-box;">
                       ${rowNum}. Sıra
                     </div>
 
                     <!-- Bloklar Grid'i (minmax(0, 1fr) ile eşit sütunlar, taşma yapmaz) -->
-                    <div style="flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(${cols}, minmax(0, 1fr)); gap: 10px; width: 100%; box-sizing: border-box; overflow: hidden;">
+                    <div style="flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(${cols}, minmax(0, 1fr)); gap: 8px; width: 100%; box-sizing: border-box; overflow: hidden;">
                       ${Array.from({ length: cols })
                         .map((_, cIdx) => {
                           const colNum = cIdx + 1;
@@ -210,7 +210,7 @@ export const exportClassroomSeatingPDF = async ({
                           const renderStudentSeat = (student: Student | null | undefined) => {
                             if (!student) {
                               return `
-                                <div style="background-color: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 6px; padding: 6px 4px; min-height: 52px; height: 52px; display: flex; align-items: center; justify-content: center; color: #94A3B8; font-size: 11px; font-style: italic; box-sizing: border-box; min-width: 0; overflow: hidden;">
+                                <div style="background-color: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 6px; padding: 4px; min-height: 48px; max-height: 52px; height: 50px; display: flex; align-items: center; justify-content: center; color: #94A3B8; font-size: 9pt; font-style: italic; box-sizing: border-box; min-width: 0; overflow: hidden;">
                                   Boş
                                 </div>
                               `;
@@ -223,16 +223,8 @@ export const exportClassroomSeatingPDF = async ({
                             const borderColor = isFemale ? '#FBCFE8' : '#BFDBFE';
 
                             return `
-                              <div style="background-color: ${bgColor}; border: 1.5px solid ${borderColor}; border-radius: 6px; padding: 5px 6px; min-height: 52px; height: 52px; display: flex; flex-direction: column; justify-content: center; box-sizing: border-box; min-width: 0; overflow: hidden;">
-                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; min-width: 0;">
-                                  <span style="font-size: 10px; font-weight: 800; color: #0F172A; background-color: rgba(255, 255, 255, 0.9); padding: 1px 4px; border-radius: 3px; border: 0.5px solid ${borderColor}; white-space: nowrap;">#${student.number}</span>
-                                  ${
-                                    student.specialNeeds?.frontRowRequired
-                                      ? '<span style="font-size: 8.5px; color: #B45309; font-weight: 800; background-color: #FEF3C7; padding: 1px 3px; border-radius: 3px; white-space: nowrap;">★ Ön</span>'
-                                      : ''
-                                  }
-                                </div>
-                                <div style="font-size: 11px; font-weight: 800; color: #0F172A; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; width: 100%; box-sizing: border-box;" title="${student.name}">
+                              <div style="background-color: ${bgColor}; border: 1.5px solid ${borderColor}; border-radius: 6px; padding: 4px; min-height: 48px; max-height: 52px; height: 50px; display: flex; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; min-width: 0; overflow: hidden;">
+                                <div style="font-size: 9.5pt; font-weight: normal; color: #0F172A; line-height: 1.1; word-break: break-word; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; width: 100%; box-sizing: border-box; text-align: center;">
                                   ${student.name}
                                 </div>
                               </div>
@@ -240,11 +232,11 @@ export const exportClassroomSeatingPDF = async ({
                           };
 
                           return `
-                          <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 8px; padding: 6px; box-sizing: border-box; min-width: 0; overflow: hidden; display: flex; flex-direction: column;">
-                            <div style="font-size: 9.5px; font-weight: 700; color: #64748B; text-align: center; margin-bottom: 4px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                          <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 6px; padding: 4px; box-sizing: border-box; min-width: 0; overflow: hidden; display: flex; flex-direction: column;">
+                            <div style="font-size: 8pt; font-weight: 700; color: #64748B; text-align: center; margin-bottom: 3px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                               ${colTitle}
                             </div>
-                            <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 5px; width: 100%; box-sizing: border-box; overflow: hidden;">
+                            <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px; width: 100%; box-sizing: border-box; overflow: hidden;">
                               ${renderStudentSeat(left)}
                               ${renderStudentSeat(right)}
                             </div>
